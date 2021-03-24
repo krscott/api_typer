@@ -60,18 +60,18 @@ fn test_data_spec() -> ApiSpec {
                 },
                 EnumVariant {
                     name: "Bar".into(),
-                    data: EnumVariantData::Single(("bool".into(), "Bool".into())),
+                    data: EnumVariantData::Single(ApiType::Basic(BasicApiType::Bool)),
                 },
                 EnumVariant {
                     name: "Qux".into(),
                     data: EnumVariantData::Struct(vec![
                         EnumStructField {
                             name: "sub1".into(),
-                            data: ("u32".into(), "Int".into()),
+                            data: ApiType::Basic(BasicApiType::Uint),
                         },
                         EnumStructField {
                             name: "sub2".into(),
-                            data: ("String".into(), "String".into()),
+                            data: ApiType::Basic(BasicApiType::String),
                         },
                     ]),
                 },

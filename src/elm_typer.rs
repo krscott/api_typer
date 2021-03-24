@@ -2,8 +2,36 @@ use crate::spec::*;
 
 pub trait ElmTyper {
     fn to_elm(&self) -> String;
-    fn to_elm_decoder(&self) -> String;
-    fn to_elm_encoder(&self) -> String;
+    fn to_elm_decoder(&self) -> String {
+        unimplemented!()
+    }
+    fn to_elm_encoder(&self) -> String {
+        unimplemented!()
+    }
+}
+
+impl ElmTyper for BasicApiType {
+    fn to_elm(&self) -> String {
+        String::from(match self {
+            BasicApiType::String => "String",
+            BasicApiType::Int => "Int",
+            BasicApiType::Uint => "Int",
+            BasicApiType::Float => "Float",
+            BasicApiType::Double => "Float",
+            BasicApiType::Bool => "Bool",
+        })
+    }
+}
+
+impl ElmTyper for ApiType {
+    fn to_elm(&self) -> String {
+        match self {
+            ApiType::Custom(type_name) => type_name.clone(),
+            ApiType::Basic(basic_type) => basic_type.to_elm(),
+            ApiType::Option(basic_type) => format!("Maybe {}", basic_type.to_elm()),
+            ApiType::Array(basic_type) => format!("List {}", basic_type.to_elm()),
+        }
+    }
 }
 
 impl ElmTyper for ApiSpec {
@@ -34,27 +62,19 @@ impl ElmTyper for ApiSpec {
 
         format!(
             "\
-module {name} exposing ({exports})
-
-import Json.Decode
-import Json.Decode.Extra
-import Json.Decode.Pipeline
-import Json.Encode
-import Json.Encode.Extra
-
-{types}",
+            module {name} exposing ({exports})\n\
+            \n\
+            import Json.Decode\n\
+            import Json.Decode.Extra\n\
+            import Json.Decode.Pipeline\n\
+            import Json.Encode\n\
+            import Json.Encode.Extra\n\
+            \n\
+            {types}",
             name = self.module,
             exports = exports_str,
             types = types_str
         )
-    }
-
-    fn to_elm_decoder(&self) -> String {
-        panic!("Do not call")
-    }
-
-    fn to_elm_encoder(&self) -> String {
-        panic!("Do not call")
     }
 }
 
@@ -72,9 +92,9 @@ impl ElmTyper for TypeSpec {
 
                 format!(
                     "\
-type alias {name} =
-\t{{ {fields}
-\t}}",
+                    type alias {name} =\n\
+                    \t{{ {fields}\n\
+                    \t}}",
                     name = name,
                     fields = fields_fmt,
                 )
@@ -116,8 +136,8 @@ type alias {name} =
 
                 format!(
                     "\
-{subtypes}type {name}
-\t= {variants}",
+                    {subtypes}type {name}\n\
+                    \t= {variants}",
                     subtypes = subtypes,
                     name = name,
                     variants = variants_fmt,
@@ -139,10 +159,10 @@ type alias {name} =
 
                 format!(
                     "\
-decode{name} : Json.Decode.Decoder {name}
-decode{name} =
-    Json.Decode.succeed {name}
-        {fields}",
+                    decode{name} : Json.Decode.Decoder {name}\n\
+                    decode{name} =\n\
+                    \tJson.Decode.succeed {name}\n\
+                    \t\t{fields}",
                     name = name,
                     fields = field_decoders
                 )
@@ -167,11 +187,11 @@ decode{name} =
 
                 format!(
                     "\
-decode{name} : Json.Decode.Decoder {name}
-decode{name} =
-    Json.Decode.oneOf
-        [ {variants}
-        ]",
+                    decode{name} : Json.Decode.Decoder {name}\n\
+                    decode{name} =\n\
+                    \tJson.Decode.oneOf\n\
+                    \t\t[ {variants}\n\
+                    \t\t]",
                     name = name,
                     variants = variant_decoders
                 )
@@ -192,11 +212,11 @@ decode{name} =
 
                 format!(
                     "\
-encode{name} : {name} -> Json.Encode.Value
-encode{name} record =
-    Json.Encode.object
-        [ {fields}
-        ]",
+                    encode{name} : {name} -> Json.Encode.Value\n\
+                    encode{name} record =\n\
+                    \tJson.Encode.object\n\
+                    \t\t[ {fields}\n\
+                    \t\t]",
                     name = name,
                     fields = field_encoders
                 )
@@ -210,9 +230,9 @@ encode{name} record =
 
                 format!(
                     "\
-encode{name} : {name} -> Json.Encode.Value
-encode{name} var =
-    case var of{variants}",
+                    encode{name} : {name} -> Json.Encode.Value\n\
+                    encode{name} var =\n\
+                    \tcase var of{variants}",
                     name = name,
                     variants = variant_cases
                 )
@@ -223,7 +243,7 @@ encode{name} var =
 
 impl ElmTyper for StructField {
     fn to_elm(&self) -> String {
-        let elm_type = &self.data.1;
+        let elm_type = self.data.to_elm();
 
         if elm_type.contains(' ') {
             format!("{} : ({})", self.name, elm_type)
@@ -233,22 +253,22 @@ impl ElmTyper for StructField {
     }
 
     fn to_elm_decoder(&self) -> String {
-        let elm_type = &self.data.1;
+        let elm_type = self.data.to_elm();
 
         format!(
             "Json.Decode.Pipeline.required \"{name}\" {decoder}",
             name = self.name,
-            decoder = elm_json_decoder(elm_type)
+            decoder = elm_json_decoder(&elm_type)
         )
     }
 
     fn to_elm_encoder(&self) -> String {
-        let elm_type = &self.data.1;
+        let elm_type = self.data.to_elm();
 
         format!(
             "(\"{name}\", {encoder} <| record.{name})",
             name = self.name,
-            encoder = elm_json_encoder(elm_type)
+            encoder = elm_json_encoder(&elm_type)
         )
     }
 }
@@ -257,7 +277,8 @@ impl ElmTyper for EnumVariant {
     fn to_elm(&self) -> String {
         match &self.data {
             EnumVariantData::None => format!("{}", self.name),
-            EnumVariantData::Single((_, elm_type)) => {
+            EnumVariantData::Single(api_type) => {
+                let elm_type = api_type.to_elm();
                 if elm_type.contains(' ') {
                     format!("{} ({})", self.name, elm_type)
                 } else {
@@ -279,12 +300,15 @@ impl ElmTyper for EnumVariant {
                 \t\t\tJson.Decode.succeed {name}",
                 name = self.name,
             ),
-            EnumVariantData::Single((_, elm_type)) => format!(
-                "Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"{name}\") <|\n\
-                \t\t\tJson.Decode.map {name} (Json.Decode.field \"vardata\" <| {decoder})",
-                name = self.name,
-                decoder = elm_json_decoder(elm_type),
-            ),
+            EnumVariantData::Single(api_type) => {
+                let elm_type = api_type.to_elm();
+                format!(
+                    "Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"{name}\") <|\n\
+                    \t\t\tJson.Decode.map {name} (Json.Decode.field \"vardata\" <| {decoder})",
+                    name = self.name,
+                    decoder = elm_json_decoder(&elm_type),
+                )
+            },
             EnumVariantData::Struct(_) => {
                 panic!("Cannot derive Elm EnumVariant::Struct")
             }
@@ -301,16 +325,19 @@ impl ElmTyper for EnumVariant {
                 \t\t\t\t]",
                 name = self.name
             ),
-            EnumVariantData::Single((_, elm_type)) => format!(
-                "\n\
-                \t\t{name} value ->\n\
-                \t\t\tJson.Encode.object\n\
-                \t\t\t\t[ ( \"var\", Json.Encode.string \"{name}\" )\n\
-                \t\t\t\t, ( \"vardata\", {encoder} <| value )\n\
-                \t\t\t\t]",
-                name = self.name,
-                encoder = elm_json_encoder(elm_type)
-            ),
+            EnumVariantData::Single(api_type) => {
+                let elm_type = api_type.to_elm();
+                format!(
+                    "\n\
+                    \t\t{name} value ->\n\
+                    \t\t\tJson.Encode.object\n\
+                    \t\t\t\t[ ( \"var\", Json.Encode.string \"{name}\" )\n\
+                    \t\t\t\t, ( \"vardata\", {encoder} <| value )\n\
+                    \t\t\t\t]",
+                    name = self.name,
+                    encoder = elm_json_encoder(&elm_type)
+                )
+            }
             EnumVariantData::Struct(fields) => format!(
                 "\n\
                 \t\t{name} record ->\n\
@@ -326,7 +353,7 @@ impl ElmTyper for EnumVariant {
                     .map(|field| format!(
                         " ( \"{name}\", {encoder} <| record.{name} )",
                         name = field.name,
-                        encoder = elm_json_encoder(&field.data.1)
+                        encoder = elm_json_encoder(&field.data.to_elm())
                     ))
                     .collect::<Vec<_>>()
                     .join("\n\t\t\t\t\t,")

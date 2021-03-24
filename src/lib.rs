@@ -59,11 +59,11 @@ import Json.Encode.Extra
                 fields: vec![
                     StructField {
                         name: "foo".into(),
-                        data: ("u32".into(), "Int".into()),
+                        data: ApiType::Basic(BasicApiType::Uint),
                     },
                     StructField {
                         name: "bar".into(),
-                        data: ("String".into(), "String".into()),
+                        data: ApiType::Basic(BasicApiType::String),
                     },
                 ],
             }],
@@ -75,8 +75,8 @@ import Json.Encode.Extra
         let expected = "\
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TestStruct {
-    pub foo: u32,
-    pub bar: String,
+\tpub foo: u32,
+\tpub bar: String,
 }";
 
         compare_strings(expected, create_spec_struct_simple().to_rust());
@@ -94,22 +94,22 @@ import Json.Encode
 import Json.Encode.Extra
 
 type alias TestStruct =
-    { foo : Int
-    , bar : String
-    }
+\t{ foo : Int
+\t, bar : String
+\t}
 
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
-    Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required \"foo\" Json.Decode.int
-        |> Json.Decode.Pipeline.required \"bar\" Json.Decode.string
+\tJson.Decode.succeed TestStruct
+\t\t|> Json.Decode.Pipeline.required \"foo\" Json.Decode.int
+\t\t|> Json.Decode.Pipeline.required \"bar\" Json.Decode.string
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
-    Json.Encode.object
-        [ (\"foo\", Json.Encode.int <| record.foo)
-        , (\"bar\", Json.Encode.string <| record.bar)
-        ]";
+\tJson.Encode.object
+\t\t[ (\"foo\", Json.Encode.int <| record.foo)
+\t\t, (\"bar\", Json.Encode.string <| record.bar)
+\t\t]";
 
         compare_strings(expected, create_spec_struct_simple().to_elm());
     }
@@ -121,7 +121,7 @@ encodeTestStruct record =
                 name: "TestStruct".into(),
                 fields: vec![StructField {
                     name: "foo".into(),
-                    data: ("Vec<u32>".into(), "List Int".into()),
+                    data: ApiType::Array(BasicApiType::Uint),
                 }],
             }],
         }
@@ -132,7 +132,7 @@ encodeTestStruct record =
         let expected = "\
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TestStruct {
-    pub foo: Vec<u32>,
+\tpub foo: Vec<u32>,
 }";
 
         compare_strings(expected, create_spec_struct_with_vec().to_rust());
@@ -150,19 +150,19 @@ import Json.Encode
 import Json.Encode.Extra
 
 type alias TestStruct =
-    { foo : (List Int)
-    }
+\t{ foo : (List Int)
+\t}
 
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
-    Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required \"foo\" (Json.Decode.list Json.Decode.int)
+\tJson.Decode.succeed TestStruct
+\t\t|> Json.Decode.Pipeline.required \"foo\" (Json.Decode.list Json.Decode.int)
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
-    Json.Encode.object
-        [ (\"foo\", Json.Encode.list Json.Encode.int <| record.foo)
-        ]";
+\tJson.Encode.object
+\t\t[ (\"foo\", Json.Encode.list Json.Encode.int <| record.foo)
+\t\t]";
 
         compare_strings(expected, create_spec_struct_with_vec().to_elm());
     }
@@ -174,7 +174,7 @@ encodeTestStruct record =
                 name: "TestStruct".into(),
                 fields: vec![StructField {
                     name: "foo".into(),
-                    data: ("Option<u32>".into(), "Maybe Int".into()),
+                    data: ApiType::Option(BasicApiType::Uint),
                 }],
             }],
         }
@@ -185,7 +185,7 @@ encodeTestStruct record =
         let expected = "\
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TestStruct {
-    pub foo: Option<u32>,
+\tpub foo: Option<u32>,
 }";
 
         compare_strings(expected, create_spec_struct_with_option().to_rust());
@@ -203,19 +203,19 @@ import Json.Encode
 import Json.Encode.Extra
 
 type alias TestStruct =
-    { foo : (Maybe Int)
-    }
+\t{ foo : (Maybe Int)
+\t}
 
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
-    Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required \"foo\" (Json.Decode.nullable Json.Decode.int)
+\tJson.Decode.succeed TestStruct
+\t\t|> Json.Decode.Pipeline.required \"foo\" (Json.Decode.nullable Json.Decode.int)
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
-    Json.Encode.object
-        [ (\"foo\", Json.Encode.Extra.maybe Json.Encode.int <| record.foo)
-        ]";
+\tJson.Encode.object
+\t\t[ (\"foo\", Json.Encode.Extra.maybe Json.Encode.int <| record.foo)
+\t\t]";
 
         compare_strings(expected, create_spec_struct_with_option().to_elm());
     }
@@ -249,9 +249,9 @@ encodeTestStruct record =
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-    Foo,
-    Bar,
-    Qux,
+\tFoo,
+\tBar,
+\tQux,
 }";
 
         compare_strings(expected, create_spec_enum_simple().to_rust());
@@ -269,36 +269,36 @@ import Json.Encode
 import Json.Encode.Extra
 
 type TestEnum
-    = Foo
-    | Bar
-    | Qux
+\t= Foo
+\t| Bar
+\t| Qux
 
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
-    Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Foo\") <|
-            Json.Decode.succeed Foo
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
-            Json.Decode.succeed Bar
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
-            Json.Decode.succeed Qux
-        ]
+\tJson.Decode.oneOf
+\t\t[ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Foo\") <|
+\t\t\tJson.Decode.succeed Foo
+\t\t, Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
+\t\t\tJson.Decode.succeed Bar
+\t\t, Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
+\t\t\tJson.Decode.succeed Qux
+\t\t]
 
 encodeTestEnum : TestEnum -> Json.Encode.Value
 encodeTestEnum var =
-    case var of
-        Foo ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Foo\" )
-                ]
-        Bar ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
-                ]
-        Qux ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                ]";
+\tcase var of
+\t\tFoo ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Foo\" )
+\t\t\t\t]
+\t\tBar ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Bar\" )
+\t\t\t\t]
+\t\tQux ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Qux\" )
+\t\t\t\t]";
 
         compare_strings(expected, create_spec_enum_simple().to_elm());
     }
@@ -315,18 +315,18 @@ encodeTestEnum var =
                     },
                     EnumVariant {
                         name: "Bar".into(),
-                        data: EnumVariantData::Single(("bool".into(), "Bool".into())),
+                        data: EnumVariantData::Single(ApiType::Basic(BasicApiType::Bool)),
                     },
                     EnumVariant {
                         name: "Qux".into(),
                         data: EnumVariantData::Struct(vec![
                             EnumStructField {
                                 name: "sub1".into(),
-                                data: ("u32".into(), "Int".into()),
+                                data: ApiType::Basic(BasicApiType::Uint),
                             },
                             EnumStructField {
                                 name: "sub2".into(),
-                                data: ("String".into(), "String".into()),
+                                data: ApiType::Basic(BasicApiType::String),
                             },
                         ]),
                     },
@@ -341,12 +341,12 @@ encodeTestEnum var =
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-    Foo,
-    Bar(bool),
-    Qux {
-        sub1: u32,
-        sub2: String,
-    },
+\tFoo,
+\tBar(bool),
+\tQux {
+\t\tsub1: u32,
+\t\tsub2: String,
+\t},
 }";
 
         compare_strings(expected, create_spec_enum_complex().to_rust());
@@ -364,52 +364,52 @@ import Json.Encode
 import Json.Encode.Extra
 
 type alias TestEnumQux =
-    { sub1 : Int
-    , sub2 : String
-    }
+\t{ sub1 : Int
+\t, sub2 : String
+\t}
 
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
-    Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required \"sub1\" Json.Decode.int
-        |> Json.Decode.Pipeline.required \"sub2\" Json.Decode.string
+\tJson.Decode.succeed TestEnumQux
+\t\t|> Json.Decode.Pipeline.required \"sub1\" Json.Decode.int
+\t\t|> Json.Decode.Pipeline.required \"sub2\" Json.Decode.string
 
 type TestEnum
-    = Foo
-    | Bar Bool
-    | Qux TestEnumQux
+\t= Foo
+\t| Bar Bool
+\t| Qux TestEnumQux
 
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
-    Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Foo\") <|
-            Json.Decode.succeed Foo
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
-            Json.Decode.map Bar (Json.Decode.field \"vardata\" <| Json.Decode.bool)
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
-            Json.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
-        ]
+\tJson.Decode.oneOf
+\t\t[ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Foo\") <|
+\t\t\tJson.Decode.succeed Foo
+\t\t, Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
+\t\t\tJson.Decode.map Bar (Json.Decode.field \"vardata\" <| Json.Decode.bool)
+\t\t, Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
+\t\t\tJson.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
+\t\t]
 
 encodeTestEnum : TestEnum -> Json.Encode.Value
 encodeTestEnum var =
-    case var of
-        Foo ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Foo\" )
-                ]
-        Bar value ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
-                , ( \"vardata\", Json.Encode.bool <| value )
-                ]
-        Qux record ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                , ( \"vardata\", Json.Encode.object
-                    [ ( \"sub1\", Json.Encode.int <| record.sub1 )
-                    , ( \"sub2\", Json.Encode.string <| record.sub2 )
-                    ] )
-                ]";
+\tcase var of
+\t\tFoo ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Foo\" )
+\t\t\t\t]
+\t\tBar value ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Bar\" )
+\t\t\t\t, ( \"vardata\", Json.Encode.bool <| value )
+\t\t\t\t]
+\t\tQux record ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Qux\" )
+\t\t\t\t, ( \"vardata\", Json.Encode.object
+\t\t\t\t\t[ ( \"sub1\", Json.Encode.int <| record.sub1 )
+\t\t\t\t\t, ( \"sub2\", Json.Encode.string <| record.sub2 )
+\t\t\t\t\t] )
+\t\t\t\t]";
 
         compare_strings(expected, create_spec_enum_complex().to_elm());
     }
@@ -422,13 +422,13 @@ encodeTestEnum var =
                 variants: vec![
                     EnumVariant {
                         name: "Bar".into(),
-                        data: EnumVariantData::Single(("Vec<u32>".into(), "List Int".into())),
+                        data: EnumVariantData::Single(ApiType::Array(BasicApiType::Uint)),
                     },
                     EnumVariant {
                         name: "Qux".into(),
                         data: EnumVariantData::Struct(vec![EnumStructField {
                             name: "sub1".into(),
-                            data: ("Vec<bool>".into(), "List Bool".into()),
+                            data: ApiType::Array(BasicApiType::Bool),
                         }]),
                     },
                 ],
@@ -442,10 +442,10 @@ encodeTestEnum var =
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-    Bar(Vec<u32>),
-    Qux {
-        sub1: Vec<bool>,
-    },
+\tBar(Vec<u32>),
+\tQux {
+\t\tsub1: Vec<bool>,
+\t},
 }";
 
         compare_strings(expected, create_spec_enum_with_vec().to_rust());
@@ -463,42 +463,42 @@ import Json.Encode
 import Json.Encode.Extra
 
 type alias TestEnumQux =
-    { sub1 : (List Bool)
-    }
+\t{ sub1 : (List Bool)
+\t}
 
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
-    Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required \"sub1\" (Json.Decode.list Json.Decode.bool)
+\tJson.Decode.succeed TestEnumQux
+\t\t|> Json.Decode.Pipeline.required \"sub1\" (Json.Decode.list Json.Decode.bool)
 
 type TestEnum
-    = Bar (List Int)
-    | Qux TestEnumQux
+\t= Bar (List Int)
+\t| Qux TestEnumQux
 
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
-    Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
-            Json.Decode.map Bar (Json.Decode.field \"vardata\" <| (Json.Decode.list Json.Decode.int))
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
-            Json.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
-        ]
+\tJson.Decode.oneOf
+\t\t[ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
+\t\t\tJson.Decode.map Bar (Json.Decode.field \"vardata\" <| (Json.Decode.list Json.Decode.int))
+\t\t, Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
+\t\t\tJson.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
+\t\t]
 
 encodeTestEnum : TestEnum -> Json.Encode.Value
 encodeTestEnum var =
-    case var of
-        Bar value ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
-                , ( \"vardata\", Json.Encode.list Json.Encode.int <| value )
-                ]
-        Qux record ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                , ( \"vardata\", Json.Encode.object
-                    [ ( \"sub1\", Json.Encode.list Json.Encode.bool <| record.sub1 )
-                    ] )
-                ]";
+\tcase var of
+\t\tBar value ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Bar\" )
+\t\t\t\t, ( \"vardata\", Json.Encode.list Json.Encode.int <| value )
+\t\t\t\t]
+\t\tQux record ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Qux\" )
+\t\t\t\t, ( \"vardata\", Json.Encode.object
+\t\t\t\t\t[ ( \"sub1\", Json.Encode.list Json.Encode.bool <| record.sub1 )
+\t\t\t\t\t] )
+\t\t\t\t]";
 
         compare_strings(expected, create_spec_enum_with_vec().to_elm());
     }
@@ -511,13 +511,13 @@ encodeTestEnum var =
                 variants: vec![
                     EnumVariant {
                         name: "Bar".into(),
-                        data: EnumVariantData::Single(("Option<u32>".into(), "Maybe Int".into())),
+                        data: EnumVariantData::Single(ApiType::Option(BasicApiType::Uint)),
                     },
                     EnumVariant {
                         name: "Qux".into(),
                         data: EnumVariantData::Struct(vec![EnumStructField {
                             name: "sub1".into(),
-                            data: ("Option<bool>".into(), "Maybe Bool".into()),
+                            data: ApiType::Option(BasicApiType::Bool),
                         }]),
                     },
                 ],
@@ -531,10 +531,10 @@ encodeTestEnum var =
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-    Bar(Option<u32>),
-    Qux {
-        sub1: Option<bool>,
-    },
+\tBar(Option<u32>),
+\tQux {
+\t\tsub1: Option<bool>,
+\t},
 }";
 
         compare_strings(expected, create_spec_enum_with_option().to_rust());
@@ -552,42 +552,42 @@ import Json.Encode
 import Json.Encode.Extra
 
 type alias TestEnumQux =
-    { sub1 : (Maybe Bool)
-    }
+\t{ sub1 : (Maybe Bool)
+\t}
 
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
-    Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required \"sub1\" (Json.Decode.nullable Json.Decode.bool)
+\tJson.Decode.succeed TestEnumQux
+\t\t|> Json.Decode.Pipeline.required \"sub1\" (Json.Decode.nullable Json.Decode.bool)
 
 type TestEnum
-    = Bar (Maybe Int)
-    | Qux TestEnumQux
+\t= Bar (Maybe Int)
+\t| Qux TestEnumQux
 
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
-    Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
-            Json.Decode.map Bar (Json.Decode.field \"vardata\" <| (Json.Decode.nullable Json.Decode.int))
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
-            Json.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
-        ]
+\tJson.Decode.oneOf
+\t\t[ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
+\t\t\tJson.Decode.map Bar (Json.Decode.field \"vardata\" <| (Json.Decode.nullable Json.Decode.int))
+\t\t, Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
+\t\t\tJson.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
+\t\t]
 
 encodeTestEnum : TestEnum -> Json.Encode.Value
 encodeTestEnum var =
-    case var of
-        Bar value ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
-                , ( \"vardata\", Json.Encode.Extra.maybe Json.Encode.int <| value )
-                ]
-        Qux record ->
-            Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                , ( \"vardata\", Json.Encode.object
-                    [ ( \"sub1\", Json.Encode.Extra.maybe Json.Encode.bool <| record.sub1 )
-                    ] )
-                ]";
+\tcase var of
+\t\tBar value ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Bar\" )
+\t\t\t\t, ( \"vardata\", Json.Encode.Extra.maybe Json.Encode.int <| value )
+\t\t\t\t]
+\t\tQux record ->
+\t\t\tJson.Encode.object
+\t\t\t\t[ ( \"var\", Json.Encode.string \"Qux\" )
+\t\t\t\t, ( \"vardata\", Json.Encode.object
+\t\t\t\t\t[ ( \"sub1\", Json.Encode.Extra.maybe Json.Encode.bool <| record.sub1 )
+\t\t\t\t\t] )
+\t\t\t\t]";
 
         compare_strings(expected, create_spec_enum_with_option().to_elm());
     }

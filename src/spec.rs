@@ -1,16 +1,34 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum BasicApiType {
+    String,
+    Int,
+    Uint,
+    Float,
+    Double,
+    Bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ApiType {
+    Custom(String),
+    Basic(BasicApiType),
+    Option(BasicApiType),
+    Array(BasicApiType),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EnumVariantData {
     None,
-    Single((String, String)),
+    Single(ApiType),
     Struct(Vec<EnumStructField>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StructField {
     pub name: String,
-    pub data: (String, String),
+    pub data: ApiType,
 }
 
 impl From<EnumStructField> for StructField {
@@ -23,7 +41,7 @@ impl From<EnumStructField> for StructField {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnumStructField {
     pub name: String,
-    pub data: (String, String),
+    pub data: ApiType,
 }
 
 impl From<StructField> for EnumStructField {
