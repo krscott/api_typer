@@ -51,31 +51,50 @@ fn main() {
 fn test_data_spec() -> ApiSpec {
     ApiSpec {
         module: "test".into(),
-        types: vec![TypeSpec::Enum {
-            name: "TestEnum".into(),
-            variants: vec![
-                EnumVariant {
-                    name: "Foo".into(),
-                    data: EnumVariantData::None,
-                },
-                EnumVariant {
-                    name: "Bar".into(),
-                    data: EnumVariantData::Single(ApiType::Basic(BasicApiType::Bool)),
-                },
-                EnumVariant {
-                    name: "Qux".into(),
-                    data: EnumVariantData::Struct(vec![
-                        EnumStructField {
-                            name: "sub1".into(),
-                            data: ApiType::Basic(BasicApiType::Uint),
-                        },
-                        EnumStructField {
-                            name: "sub2".into(),
-                            data: ApiType::Basic(BasicApiType::String),
-                        },
-                    ]),
-                },
-            ],
-        }],
+        types: vec![
+            TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Foo".into(),
+                        data: EnumVariantData::None,
+                    },
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::Single(ApiType::Basic(BasicApiType::Bool)),
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::Struct(vec![
+                            EnumStructField {
+                                name: "sub1".into(),
+                                data: ApiType::Basic(BasicApiType::Uint),
+                            },
+                            EnumStructField {
+                                name: "sub2".into(),
+                                data: ApiType::Basic(BasicApiType::String),
+                            },
+                        ]),
+                    },
+                ],
+            },
+            TypeSpec::Struct {
+                name: "MyStruct".into(),
+                fields: vec![
+                    StructField {
+                        name: "num".into(),
+                        data: ApiType::Basic(BasicApiType::Int),
+                    },
+                    StructField {
+                        name: "arr".into(),
+                        data: ApiType::Array(BasicApiType::String),
+                    },
+                    StructField {
+                        name: "maybe".into(),
+                        data: ApiType::Option(BasicApiType::Float),
+                    },
+                ],
+            },
+        ],
     }
 }

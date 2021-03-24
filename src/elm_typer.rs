@@ -136,7 +136,8 @@ impl ElmTyper for TypeSpec {
 
                 format!(
                     "\
-                    {subtypes}type {name}\n\
+                    {subtypes}\
+                    type {name}\n\
                     \t= {variants}",
                     subtypes = subtypes,
                     name = name,
