@@ -6,21 +6,21 @@ pub trait TypescriptTyper {
 
 impl TypescriptTyper for BasicApiType {
     fn to_typescript(&self) -> String {
-        String::from(match self {
-            BasicApiType::String => "string",
-            BasicApiType::Int => "number",
-            BasicApiType::Uint => "number",
-            BasicApiType::Float => "number",
-            BasicApiType::Double => "number",
-            BasicApiType::Bool => "boolean",
-        })
+        match self {
+            BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::String => String::from("string"),
+            BasicApiType::Int => String::from("number"),
+            BasicApiType::Uint => String::from("number"),
+            BasicApiType::Float => String::from("number"),
+            BasicApiType::Double => String::from("number"),
+            BasicApiType::Bool => String::from("boolean"),
+        }
     }
 }
 
 impl TypescriptTyper for ApiType {
     fn to_typescript(&self) -> String {
         match self {
-            ApiType::Custom(type_name) => type_name.clone(),
             ApiType::Basic(basic_type) => basic_type.to_typescript(),
             ApiType::Option(basic_type) => format!("{} | null", basic_type.to_typescript()),
             ApiType::Array(basic_type) => format!("Array<{}>", basic_type.to_typescript()),

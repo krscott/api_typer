@@ -9,21 +9,21 @@ const SERDE_ENUM_HEADER: &str = "#[serde(tag = \"var\", content = \"vardata\")]"
 
 impl RustTyper for BasicApiType {
     fn to_rust(&self) -> String {
-        String::from(match self {
-            BasicApiType::String => "String",
-            BasicApiType::Int => "i32",
-            BasicApiType::Uint => "u32",
-            BasicApiType::Float => "f32",
-            BasicApiType::Double => "f64",
-            BasicApiType::Bool => "bool",
-        })
+        match self {
+            BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::String => String::from("String"),
+            BasicApiType::Int => String::from("i32"),
+            BasicApiType::Uint => String::from("u32"),
+            BasicApiType::Float => String::from("f32"),
+            BasicApiType::Double => String::from("f64"),
+            BasicApiType::Bool => String::from("bool"),
+        }
     }
 }
 
 impl RustTyper for ApiType {
     fn to_rust(&self) -> String {
         match self {
-            ApiType::Custom(type_name) => type_name.clone(),
             ApiType::Basic(basic_type) => basic_type.to_rust(),
             ApiType::Option(basic_type) => format!("Option<{}>", basic_type.to_rust()),
             ApiType::Array(basic_type) => format!("Vec<{}>", basic_type.to_rust()),

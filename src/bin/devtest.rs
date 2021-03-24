@@ -93,6 +93,10 @@ fn test_data_spec() -> ApiSpec {
                         name: "maybe".into(),
                         data: ApiType::Option(BasicApiType::Float),
                     },
+                    StructField {
+                        name: "myenum".into(),
+                        data: ApiType::Basic(BasicApiType::Custom("TestEnum".into())),
+                    },
                 ],
             },
         ],

@@ -12,21 +12,21 @@ pub trait ElmTyper {
 
 impl ElmTyper for BasicApiType {
     fn to_elm(&self) -> String {
-        String::from(match self {
-            BasicApiType::String => "String",
-            BasicApiType::Int => "Int",
-            BasicApiType::Uint => "Int",
-            BasicApiType::Float => "Float",
-            BasicApiType::Double => "Float",
-            BasicApiType::Bool => "Bool",
-        })
+        match self {
+            BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::String => String::from("String"),
+            BasicApiType::Int => String::from("Int"),
+            BasicApiType::Uint => String::from("Int"),
+            BasicApiType::Float => String::from("Float"),
+            BasicApiType::Double => String::from("Float"),
+            BasicApiType::Bool => String::from("Bool"),
+        }
     }
 }
 
 impl ElmTyper for ApiType {
     fn to_elm(&self) -> String {
         match self {
-            ApiType::Custom(type_name) => type_name.clone(),
             ApiType::Basic(basic_type) => basic_type.to_elm(),
             ApiType::Option(basic_type) => format!("Maybe {}", basic_type.to_elm()),
             ApiType::Array(basic_type) => format!("List {}", basic_type.to_elm()),

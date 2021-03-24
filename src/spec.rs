@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum BasicApiType {
+    Custom(String),
     String,
     Int,
     Uint,
@@ -12,7 +13,6 @@ pub enum BasicApiType {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ApiType {
-    Custom(String),
     Basic(BasicApiType),
     Option(BasicApiType),
     Array(BasicApiType),
