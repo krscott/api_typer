@@ -1,5 +1,9 @@
+mod elm_typer;
+mod rust_typer;
 mod spec;
 
+pub use elm_typer::ElmTyper;
+pub use rust_typer::RustTyper;
 pub use spec::*;
 
 #[cfg(test)]
@@ -316,11 +320,11 @@ encodeTestEnum var =
                     EnumVariant {
                         name: "Qux".into(),
                         data: EnumVariantData::Struct(vec![
-                            StructField {
+                            EnumStructField {
                                 name: "sub1".into(),
                                 data: ("u32".into(), "Int".into()),
                             },
-                            StructField {
+                            EnumStructField {
                                 name: "sub2".into(),
                                 data: ("String".into(), "String".into()),
                             },
@@ -422,7 +426,7 @@ encodeTestEnum var =
                     },
                     EnumVariant {
                         name: "Qux".into(),
-                        data: EnumVariantData::Struct(vec![StructField {
+                        data: EnumVariantData::Struct(vec![EnumStructField {
                             name: "sub1".into(),
                             data: ("Vec<bool>".into(), "List Bool".into()),
                         }]),
@@ -511,7 +515,7 @@ encodeTestEnum var =
                     },
                     EnumVariant {
                         name: "Qux".into(),
-                        data: EnumVariantData::Struct(vec![StructField {
+                        data: EnumVariantData::Struct(vec![EnumStructField {
                             name: "sub1".into(),
                             data: ("Option<bool>".into(), "Maybe Bool".into()),
                         }]),

@@ -1,5 +1,5 @@
+use api_typer::*;
 use polymorphio::FileOrStdout;
-use rust_elm_types::*;
 use std::{error::Error, path::PathBuf, process::exit};
 use structopt::StructOpt;
 
@@ -65,11 +65,11 @@ fn test_data_spec() -> ApiSpec {
                 EnumVariant {
                     name: "Qux".into(),
                     data: EnumVariantData::Struct(vec![
-                        StructField {
+                        EnumStructField {
                             name: "sub1".into(),
                             data: ("u32".into(), "Int".into()),
                         },
-                        StructField {
+                        EnumStructField {
                             name: "sub2".into(),
                             data: ("String".into(), "String".into()),
                         },

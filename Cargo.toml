@@ -1,9 +1,9 @@
 [package]
-name = "rust_elm_types"
-version = "0.1.1"
+name = "api_typer"
+version = "0.2.0"
 authors = ["Kris Scott <kscott91@gmail.com>"]
 edition = "2018"
-description = "Boilerplate for Rust CLI program"
+description = "Tool for generating types and serializer/deserializer functions"
 default-run = "main"
 
 [[bin]]

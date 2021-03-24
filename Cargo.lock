@@ -10,6 +10,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "api_typer"
+version = "0.2.0"
+dependencies = [
+ "log",
+ "polymorphio",
+ "serde",
+ "serde_yaml",
+ "stderrlog",
+ "structopt",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -199,18 +211,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e891cfe48e9100a70a3b6eb652fef28920c117d366339687bd5576160db0f76"
 dependencies = [
  "redox_syscall",
-]
-
-[[package]]
-name = "rust_elm_types"
-version = "0.1.1"
-dependencies = [
- "log",
- "polymorphio",
- "serde",
- "serde_yaml",
- "stderrlog",
- "structopt",
 ]
 
 [[package]]

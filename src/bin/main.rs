@@ -1,5 +1,5 @@
+use api_typer::{ApiSpec, ElmTyper, RustTyper};
 use polymorphio::{FileOrStdin, FileOrStdout};
-use rust_elm_types::ApiSpec;
 use std::{error::Error, path::PathBuf, process::exit};
 use structopt::StructOpt;
 
