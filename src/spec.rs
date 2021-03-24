@@ -2,27 +2,63 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum BasicApiType {
-    Custom(String),
     String,
     Int,
     Uint,
     Float,
     Double,
     Bool,
+    Custom(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum ApiType {
-    Basic(BasicApiType),
+pub enum ComplexApiType {
     Option(BasicApiType),
     Array(BasicApiType),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum ApiType {
+    Basic(BasicApiType),
+    Complex(ComplexApiType),
+}
+
+impl ApiType {
+    pub fn basic(basic_type: BasicApiType) -> Self {
+        Self::Basic(basic_type)
+    }
+
+    pub fn option(basic_type: BasicApiType) -> Self {
+        Self::Complex(ComplexApiType::Option(basic_type))
+    }
+
+    pub fn array(basic_type: BasicApiType) -> Self {
+        Self::Complex(ComplexApiType::Array(basic_type))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum EnumVariantData {
     None,
     Single(ApiType),
     Struct(Vec<EnumStructField>),
+}
+
+impl Default for EnumVariantData {
+    fn default() -> Self {
+        EnumVariantData::None
+    }
+}
+
+impl EnumVariantData {
+    fn is_none(&self) -> bool {
+        match self {
+            Self::None => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,6 +90,7 @@ impl From<StructField> for EnumStructField {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnumVariant {
     pub name: String,
+    #[serde(default, skip_serializing_if = "EnumVariantData::is_none")]
     pub data: EnumVariantData,
 }
 

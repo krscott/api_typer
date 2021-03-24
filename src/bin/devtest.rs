@@ -83,19 +83,19 @@ fn test_data_spec() -> ApiSpec {
                 fields: vec![
                     StructField {
                         name: "num".into(),
-                        data: ApiType::Basic(BasicApiType::Int),
+                        data: ApiType::basic(BasicApiType::Int),
                     },
                     StructField {
                         name: "arr".into(),
-                        data: ApiType::Array(BasicApiType::String),
+                        data: ApiType::array(BasicApiType::String),
                     },
                     StructField {
                         name: "maybe".into(),
-                        data: ApiType::Option(BasicApiType::Float),
+                        data: ApiType::option(BasicApiType::Float),
                     },
                     StructField {
                         name: "myenum".into(),
-                        data: ApiType::Basic(BasicApiType::Custom("TestEnum".into())),
+                        data: ApiType::basic(BasicApiType::Custom("TestEnum".into())),
                     },
                 ],
             },

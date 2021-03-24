@@ -28,8 +28,12 @@ impl ElmTyper for ApiType {
     fn to_elm(&self) -> String {
         match self {
             ApiType::Basic(basic_type) => basic_type.to_elm(),
-            ApiType::Option(basic_type) => format!("Maybe {}", basic_type.to_elm()),
-            ApiType::Array(basic_type) => format!("List {}", basic_type.to_elm()),
+            ApiType::Complex(ComplexApiType::Option(basic_type)) => {
+                format!("Maybe {}", basic_type.to_elm())
+            }
+            ApiType::Complex(ComplexApiType::Array(basic_type)) => {
+                format!("List {}", basic_type.to_elm())
+            }
         }
     }
 }

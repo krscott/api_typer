@@ -22,8 +22,12 @@ impl TypescriptTyper for ApiType {
     fn to_typescript(&self) -> String {
         match self {
             ApiType::Basic(basic_type) => basic_type.to_typescript(),
-            ApiType::Option(basic_type) => format!("{} | null", basic_type.to_typescript()),
-            ApiType::Array(basic_type) => format!("Array<{}>", basic_type.to_typescript()),
+            ApiType::Complex(ComplexApiType::Option(basic_type)) => {
+                format!("{} | null", basic_type.to_typescript())
+            }
+            ApiType::Complex(ComplexApiType::Array(basic_type)) => {
+                format!("Array<{}>", basic_type.to_typescript())
+            }
         }
     }
 }

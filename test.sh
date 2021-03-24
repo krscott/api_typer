@@ -1,0 +1,15 @@
+#!bash
+
+# exit when any command fails
+set -e
+trap 'echo ''; echo Error at $(basename "$0"):${LINENO}: $BASH_COMMAND' ERR
+
+# set working directory to this script's directory
+cd "${0%/*}"
+
+cargo test
+
+mkdir -p test/
+cargo run --bin devtest -- -o test/spec.yml
+cargo run -- test/spec.yml -e test/ApiTypes.elm -r test/api_types.rs -t test/apiTypes.ts
+

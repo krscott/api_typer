@@ -25,8 +25,12 @@ impl RustTyper for ApiType {
     fn to_rust(&self) -> String {
         match self {
             ApiType::Basic(basic_type) => basic_type.to_rust(),
-            ApiType::Option(basic_type) => format!("Option<{}>", basic_type.to_rust()),
-            ApiType::Array(basic_type) => format!("Vec<{}>", basic_type.to_rust()),
+            ApiType::Complex(ComplexApiType::Option(basic_type)) => {
+                format!("Option<{}>", basic_type.to_rust())
+            }
+            ApiType::Complex(ComplexApiType::Array(basic_type)) => {
+                format!("Vec<{}>", basic_type.to_rust())
+            }
         }
     }
 }

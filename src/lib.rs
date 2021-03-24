@@ -123,7 +123,7 @@ encodeTestStruct record =
                 name: "TestStruct".into(),
                 fields: vec![StructField {
                     name: "foo".into(),
-                    data: ApiType::Array(BasicApiType::Uint),
+                    data: ApiType::array(BasicApiType::Uint),
                 }],
             }],
         }
@@ -176,7 +176,7 @@ encodeTestStruct record =
                 name: "TestStruct".into(),
                 fields: vec![StructField {
                     name: "foo".into(),
-                    data: ApiType::Option(BasicApiType::Uint),
+                    data: ApiType::option(BasicApiType::Uint),
                 }],
             }],
         }
@@ -424,13 +424,13 @@ encodeTestEnum var =
                 variants: vec![
                     EnumVariant {
                         name: "Bar".into(),
-                        data: EnumVariantData::Single(ApiType::Array(BasicApiType::Uint)),
+                        data: EnumVariantData::Single(ApiType::array(BasicApiType::Uint)),
                     },
                     EnumVariant {
                         name: "Qux".into(),
                         data: EnumVariantData::Struct(vec![EnumStructField {
                             name: "sub1".into(),
-                            data: ApiType::Array(BasicApiType::Bool),
+                            data: ApiType::array(BasicApiType::Bool),
                         }]),
                     },
                 ],
@@ -513,13 +513,13 @@ encodeTestEnum var =
                 variants: vec![
                     EnumVariant {
                         name: "Bar".into(),
-                        data: EnumVariantData::Single(ApiType::Option(BasicApiType::Uint)),
+                        data: EnumVariantData::Single(ApiType::option(BasicApiType::Uint)),
                     },
                     EnumVariant {
                         name: "Qux".into(),
                         data: EnumVariantData::Struct(vec![EnumStructField {
                             name: "sub1".into(),
-                            data: ApiType::Option(BasicApiType::Bool),
+                            data: ApiType::option(BasicApiType::Bool),
                         }]),
                     },
                 ],
