@@ -4,7 +4,8 @@ pub trait RustTyper {
     fn to_rust(&self) -> String;
 }
 
-const TYPE_DERIVE_HEADER: &str = "#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]";
+const TYPE_DERIVE_HEADER: &str =
+    "#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]";
 const SERDE_ENUM_HEADER: &str = "#[serde(tag = \"var\", content = \"vardata\")]";
 
 impl RustTyper for BasicApiType {
