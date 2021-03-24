@@ -66,12 +66,27 @@ impl TypescriptTyper for TypeSpec {
                     .collect::<Vec<_>>()
                     .join(" |\n\t");
 
+                let variant_objs = variants
+                    .iter()
+                    .map(|var| {
+                        format!(
+                            "export const {enumname}{varname}Var = \"{varname}\"",
+                            varname = var.name,
+                            enumname = name,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
                 format!(
                     "export type {name} = (\n\
                     \t{variants}\n\
-                    )",
+                    )\n\
+                    \n\
+                    {objects}\n",
                     name = name,
-                    variants = variants_fmt
+                    variants = variants_fmt,
+                    objects = variant_objs
                 )
             }
         }
