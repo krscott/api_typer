@@ -78,15 +78,74 @@ impl TypescriptTyper for TypeSpec {
                     .collect::<Vec<_>>()
                     .join("\n");
 
+                let match_func = {
+                    let match_arms = variants
+                        .iter()
+                        .map(|EnumVariant { name, data }| {
+                            let vardata_arg = match data {
+                                EnumVariantData::None => String::from(""),
+                                EnumVariantData::Single(api_type) => {
+                                    format!("vardata: {}", api_type.to_typescript())
+                                }
+                                EnumVariantData::Struct(fields) => {
+                                    let fields_ts = fields
+                                        .iter()
+                                        .map(|field| field.to_typescript())
+                                        .collect::<Vec<_>>()
+                                        .join("");
+
+                                    format!("vardata: {{\n{}\t}}", fields_ts)
+                                }
+                            };
+
+                            format!("\t{}: ({}) => T,\n", name, vardata_arg,)
+                        })
+                        .collect::<Vec<_>>()
+                        .join("");
+
+                    let match_cases = variants
+                        .iter()
+                        .map(|EnumVariant { name, data }| {
+                            let x_vardata = match data {
+                                EnumVariantData::None => "",
+                                _ => "x.vardata",
+                            };
+
+                            format!(
+                                "\t\tcase \"{name}\": return arms.{name}({x_vardata})\n",
+                                name = name,
+                                x_vardata = x_vardata
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("");
+
+                    format!(
+                        "export function match{name}<T>(x: {name}, arms: {{\n\
+                            {match_arms}\
+                        }}): T {{\n\
+                            \tswitch (x.var) {{\n\
+                                {match_cases}\
+                            \t}}\n\
+                        }}",
+                        name = name,
+                        match_arms = match_arms,
+                        match_cases = match_cases,
+                    )
+                };
+
                 format!(
                     "export type {name} = (\n\
                     \t{variants}\n\
                     )\n\
                     \n\
-                    {objects}\n",
+                    {objects}\n\
+                    \n\
+                    {match_func}\n",
                     name = name,
                     variants = variants_fmt,
-                    objects = variant_objs
+                    objects = variant_objs,
+                    match_func = match_func
                 )
             }
         }
