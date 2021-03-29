@@ -124,3 +124,266 @@ impl RustTyper for EnumVariantData {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn compare_strings(expected: &str, actual: String) {
+        eprintln!(
+            "============\n  Expected\n============\n\n{}\n\n\
+            ==========\n  Actual\n==========\n\n{}\n\n",
+            expected, actual
+        );
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn rust_empty() {
+        let spec = ApiSpec {
+            module: "TestType".into(),
+            types: vec![],
+        };
+
+        compare_strings("", spec.to_rust());
+    }
+
+    fn create_spec_struct_simple() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![
+                    StructField {
+                        name: "foo".into(),
+                        data: ApiType::Basic(BasicApiType::Uint),
+                    },
+                    StructField {
+                        name: "bar".into(),
+                        data: ApiType::Basic(BasicApiType::String),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_struct_simple() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestStruct {
+\tpub foo: u32,
+\tpub bar: String,
+}";
+
+        compare_strings(expected, create_spec_struct_simple().to_rust());
+    }
+
+    fn create_spec_struct_with_vec() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "foo".into(),
+                    data: ApiType::array(BasicApiType::Uint),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_struct_with_vec() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestStruct {
+\tpub foo: Vec<u32>,
+}";
+
+        compare_strings(expected, create_spec_struct_with_vec().to_rust());
+    }
+
+    fn create_spec_struct_with_option() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "foo".into(),
+                    data: ApiType::option(BasicApiType::Uint),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_struct_with_option() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestStruct {
+\tpub foo: Option<u32>,
+}";
+
+        compare_strings(expected, create_spec_struct_with_option().to_rust());
+    }
+
+    fn create_spec_enum_simple() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Foo".into(),
+                        data: EnumVariantData::None,
+                    },
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::None,
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::None,
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_enum_simple() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = \"var\", content = \"vardata\")]
+pub enum TestEnum {
+\tFoo,
+\tBar,
+\tQux,
+}";
+
+        compare_strings(expected, create_spec_enum_simple().to_rust());
+    }
+
+    fn create_spec_enum_complex() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Foo".into(),
+                        data: EnumVariantData::None,
+                    },
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::Single(ApiType::Basic(BasicApiType::Bool)),
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::Struct(vec![
+                            EnumStructField {
+                                name: "sub1".into(),
+                                data: ApiType::Basic(BasicApiType::Uint),
+                            },
+                            EnumStructField {
+                                name: "sub2".into(),
+                                data: ApiType::Basic(BasicApiType::String),
+                            },
+                        ]),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_enum_complex() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = \"var\", content = \"vardata\")]
+pub enum TestEnum {
+\tFoo,
+\tBar(bool),
+\tQux {
+\t\tsub1: u32,
+\t\tsub2: String,
+\t},
+}";
+
+        compare_strings(expected, create_spec_enum_complex().to_rust());
+    }
+
+    fn create_spec_enum_with_vec() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::Single(ApiType::array(BasicApiType::Uint)),
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::Struct(vec![EnumStructField {
+                            name: "sub1".into(),
+                            data: ApiType::array(BasicApiType::Bool),
+                        }]),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_enum_with_vec() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = \"var\", content = \"vardata\")]
+pub enum TestEnum {
+\tBar(Vec<u32>),
+\tQux {
+\t\tsub1: Vec<bool>,
+\t},
+}";
+
+        compare_strings(expected, create_spec_enum_with_vec().to_rust());
+    }
+
+    fn create_spec_enum_with_option() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::Single(ApiType::option(BasicApiType::Uint)),
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::Struct(vec![EnumStructField {
+                            name: "sub1".into(),
+                            data: ApiType::option(BasicApiType::Bool),
+                        }]),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_enum_with_option() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = \"var\", content = \"vardata\")]
+pub enum TestEnum {
+\tBar(Option<u32>),
+\tQux {
+\t\tsub1: Option<bool>,
+\t},
+}";
+
+        compare_strings(expected, create_spec_enum_with_option().to_rust());
+    }
+}
