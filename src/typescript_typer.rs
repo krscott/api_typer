@@ -64,11 +64,13 @@ impl TypescriptTyper for TypeSpec {
                 )
             }
             Self::Enum { name, variants } => {
+                let sep = format!(" |\n{indent}", indent = INDENT);
+
                 let variants_fmt = variants
                     .iter()
                     .map(|var| var.to_typescript())
                     .collect::<Vec<_>>()
-                    .join(" |\n\t");
+                    .join(&sep);
 
                 let variant_objs = variants
                     .iter()
@@ -98,11 +100,16 @@ impl TypescriptTyper for TypeSpec {
                                         .collect::<Vec<_>>()
                                         .join("");
 
-                                    format!("vardata: {{\n{}\t}}", fields_ts)
+                                    format!("vardata: {{\n{}{indent}}}", fields_ts, indent = INDENT)
                                 }
                             };
 
-                            format!("\t{}: ({}) => T,\n", name, vardata_arg,)
+                            format!(
+                                "{indent}{}: ({}) => T,\n",
+                                name,
+                                vardata_arg,
+                                indent = INDENT,
+                            )
                         })
                         .collect::<Vec<_>>()
                         .join("");
@@ -116,9 +123,9 @@ impl TypescriptTyper for TypeSpec {
                             };
 
                             format!(
-                                "\t\tcase \"{name}\": return arms.{name}({x_vardata})\n",
+                                "{indent}{indent}case \"{name}\": return arms.{name}({x_vardata})\n",
                                 name = name,
-                                x_vardata = x_vardata
+                                x_vardata = x_vardata, indent = INDENT
                             )
                         })
                         .collect::<Vec<_>>()
@@ -128,19 +135,20 @@ impl TypescriptTyper for TypeSpec {
                         "export function match{name}<T>(x: {name}, arms: {{\n\
                             {match_arms}\
                         }}): T {{\n\
-                            \tswitch (x.var) {{\n\
+                            {indent}switch (x.var) {{\n\
                                 {match_cases}\
-                            \t}}\n\
+                            {indent}}}\n\
                         }}",
                         name = name,
                         match_arms = match_arms,
                         match_cases = match_cases,
+                        indent = INDENT,
                     )
                 };
 
                 format!(
                     "export type {name} = (\n\
-                    \t{variants}\n\
+                    {indent}{variants}\n\
                     )\n\
                     \n\
                     {objects}\n\
@@ -149,7 +157,8 @@ impl TypescriptTyper for TypeSpec {
                     name = name,
                     variants = variants_fmt,
                     objects = variant_objs,
-                    match_func = match_func
+                    match_func = match_func,
+                    indent = INDENT
                 )
             }
         }
@@ -158,13 +167,23 @@ impl TypescriptTyper for TypeSpec {
 
 impl TypescriptTyper for StructField {
     fn to_typescript(&self) -> String {
-        format!("\t{}: {},\n", self.name, self.data.to_typescript())
+        format!(
+            "{indent}{}: {},\n",
+            self.name,
+            self.data.to_typescript(),
+            indent = INDENT
+        )
     }
 }
 
 impl TypescriptTyper for EnumStructField {
     fn to_typescript(&self) -> String {
-        format!("\t\t{}: {},\n", self.name, self.data.to_typescript())
+        format!(
+            "{indent}{indent}{}: {},\n",
+            self.name,
+            self.data.to_typescript(),
+            indent = INDENT
+        )
     }
 }
 
@@ -194,8 +213,326 @@ impl TypescriptTyper for EnumVariantData {
                     .collect::<Vec<_>>()
                     .join("");
 
-                format!(" {{\n{fields}\t}}", fields = fields_fmt)
+                format!(
+                    " {{\n{fields}{indent}}}",
+                    fields = fields_fmt,
+                    indent = INDENT
+                )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn compare_strings(expected: &str, actual: String) {
+        eprintln!(
+            "============\n  Expected\n============\n\n{}\n\n\
+            ==========\n  Actual\n==========\n\n{}\n\n",
+            expected, actual
+        );
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn typescript_empty() {
+        let spec = ApiSpec {
+            module: "TestType".into(),
+            types: vec![],
+        };
+
+        compare_strings("", spec.to_typescript());
+    }
+
+    fn create_spec_struct_simple() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![
+                    StructField {
+                        name: "foo".into(),
+                        data: ApiType::Basic(BasicApiType::Uint),
+                    },
+                    StructField {
+                        name: "bar".into(),
+                        data: ApiType::Basic(BasicApiType::String),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_struct_simple() {
+        let expected = r#"export interface TestStruct {
+    foo: number,
+    bar: string,
+}"#;
+
+        compare_strings(expected, create_spec_struct_simple().to_typescript());
+    }
+
+    fn create_spec_struct_with_vec() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "foo".into(),
+                    data: ApiType::array(BasicApiType::Uint),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_struct_with_vec() {
+        let expected = r#"export interface TestStruct {
+    foo: Array<number>,
+}"#;
+
+        compare_strings(expected, create_spec_struct_with_vec().to_typescript());
+    }
+
+    fn create_spec_struct_with_option() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "foo".into(),
+                    data: ApiType::option(BasicApiType::Uint),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_struct_with_option() {
+        let expected = r#"export interface TestStruct {
+    foo: number | null,
+}"#;
+
+        compare_strings(expected, create_spec_struct_with_option().to_typescript());
+    }
+
+    fn create_spec_enum_simple() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Foo".into(),
+                        data: EnumVariantData::None,
+                    },
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::None,
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::None,
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_enum_simple() {
+        let expected = r#"export type TestEnum = (
+    { var: "Foo" } |
+    { var: "Bar" } |
+    { var: "Qux" }
+)
+
+export const TestEnumFooVar = "Foo"
+export const TestEnumBarVar = "Bar"
+export const TestEnumQuxVar = "Qux"
+
+export function matchTestEnum<T>(x: TestEnum, arms: {
+    Foo: () => T,
+    Bar: () => T,
+    Qux: () => T,
+}): T {
+    switch (x.var) {
+        case "Foo": return arms.Foo()
+        case "Bar": return arms.Bar()
+        case "Qux": return arms.Qux()
+    }
+}
+"#;
+
+        compare_strings(expected, create_spec_enum_simple().to_typescript());
+    }
+
+    fn create_spec_enum_complex() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Foo".into(),
+                        data: EnumVariantData::None,
+                    },
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::Single(ApiType::Basic(BasicApiType::Bool)),
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::Struct(vec![
+                            EnumStructField {
+                                name: "sub1".into(),
+                                data: ApiType::Basic(BasicApiType::Uint),
+                            },
+                            EnumStructField {
+                                name: "sub2".into(),
+                                data: ApiType::Basic(BasicApiType::String),
+                            },
+                        ]),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_enum_complex() {
+        let expected = r#"export type TestEnum = (
+    { var: "Foo" } |
+    { var: "Bar", vardata: boolean } |
+    { var: "Qux", vardata:  {
+        sub1: number,
+        sub2: string,
+    } }
+)
+
+export const TestEnumFooVar = "Foo"
+export const TestEnumBarVar = "Bar"
+export const TestEnumQuxVar = "Qux"
+
+export function matchTestEnum<T>(x: TestEnum, arms: {
+    Foo: () => T,
+    Bar: (vardata: boolean) => T,
+    Qux: (vardata: {
+        sub1: number,
+        sub2: string,
+    }) => T,
+}): T {
+    switch (x.var) {
+        case "Foo": return arms.Foo()
+        case "Bar": return arms.Bar(x.vardata)
+        case "Qux": return arms.Qux(x.vardata)
+    }
+}
+"#;
+
+        compare_strings(expected, create_spec_enum_complex().to_typescript());
+    }
+
+    fn create_spec_enum_with_vec() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::Single(ApiType::array(BasicApiType::Uint)),
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::Struct(vec![EnumStructField {
+                            name: "sub1".into(),
+                            data: ApiType::array(BasicApiType::Bool),
+                        }]),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_enum_with_vec() {
+        let expected = r#"export type TestEnum = (
+    { var: "Bar", vardata: Array<number> } |
+    { var: "Qux", vardata:  {
+        sub1: Array<boolean>,
+    } }
+)
+
+export const TestEnumBarVar = "Bar"
+export const TestEnumQuxVar = "Qux"
+
+export function matchTestEnum<T>(x: TestEnum, arms: {
+    Bar: (vardata: Array<number>) => T,
+    Qux: (vardata: {
+        sub1: Array<boolean>,
+    }) => T,
+}): T {
+    switch (x.var) {
+        case "Bar": return arms.Bar(x.vardata)
+        case "Qux": return arms.Qux(x.vardata)
+    }
+}
+"#;
+
+        compare_strings(expected, create_spec_enum_with_vec().to_typescript());
+    }
+
+    fn create_spec_enum_with_option() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![
+                    EnumVariant {
+                        name: "Bar".into(),
+                        data: EnumVariantData::Single(ApiType::option(BasicApiType::Uint)),
+                    },
+                    EnumVariant {
+                        name: "Qux".into(),
+                        data: EnumVariantData::Struct(vec![EnumStructField {
+                            name: "sub1".into(),
+                            data: ApiType::option(BasicApiType::Bool),
+                        }]),
+                    },
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_enum_with_option() {
+        let expected = r#"export type TestEnum = (
+    { var: "Bar", vardata: number | null } |
+    { var: "Qux", vardata:  {
+        sub1: boolean | null,
+    } }
+)
+
+export const TestEnumBarVar = "Bar"
+export const TestEnumQuxVar = "Qux"
+
+export function matchTestEnum<T>(x: TestEnum, arms: {
+    Bar: (vardata: number | null) => T,
+    Qux: (vardata: {
+        sub1: boolean | null,
+    }) => T,
+}): T {
+    switch (x.var) {
+        case "Bar": return arms.Bar(x.vardata)
+        case "Qux": return arms.Qux(x.vardata)
+    }
+}
+"#;
+
+        compare_strings(expected, create_spec_enum_with_option().to_typescript());
     }
 }

@@ -95,19 +95,34 @@ impl RustTyper for TypeSpec {
 
 impl RustTyper for StructField {
     fn to_rust(&self) -> String {
-        format!("\tpub {}: {},\n", self.name, self.data.to_rust())
+        format!(
+            "{indent}pub {}: {},\n",
+            self.name,
+            self.data.to_rust(),
+            indent = INDENT,
+        )
     }
 }
 
 impl RustTyper for EnumStructField {
     fn to_rust(&self) -> String {
-        format!("\t\t{}: {},\n", self.name, self.data.to_rust())
+        format!(
+            "{indent}{indent}{}: {},\n",
+            self.name,
+            self.data.to_rust(),
+            indent = INDENT,
+        )
     }
 }
 
 impl RustTyper for EnumVariant {
     fn to_rust(&self) -> String {
-        format!("\t{}{},\n", self.name, self.data.to_rust())
+        format!(
+            "{indent}{}{},\n",
+            self.name,
+            self.data.to_rust(),
+            indent = INDENT,
+        )
     }
 }
 
@@ -123,7 +138,11 @@ impl RustTyper for EnumVariantData {
                     .collect::<Vec<_>>()
                     .join("");
 
-                format!(" {{\n{fields}\t}}", fields = fields_fmt)
+                format!(
+                    " {{\n{fields}{indent}}}",
+                    fields = fields_fmt,
+                    indent = INDENT
+                )
             }
         }
     }
@@ -176,8 +195,8 @@ mod tests {
         let expected = "\
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TestStruct {
-\tpub foo: u32,
-\tpub bar: String,
+    pub foo: u32,
+    pub bar: String,
 }";
 
         compare_strings(expected, create_spec_struct_simple().to_rust());
@@ -201,7 +220,7 @@ pub struct TestStruct {
         let expected = "\
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TestStruct {
-\tpub foo: Vec<u32>,
+    pub foo: Vec<u32>,
 }";
 
         compare_strings(expected, create_spec_struct_with_vec().to_rust());
@@ -225,7 +244,7 @@ pub struct TestStruct {
         let expected = "\
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TestStruct {
-\tpub foo: Option<u32>,
+    pub foo: Option<u32>,
 }";
 
         compare_strings(expected, create_spec_struct_with_option().to_rust());
@@ -260,9 +279,9 @@ pub struct TestStruct {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-\tFoo,
-\tBar,
-\tQux,
+    Foo,
+    Bar,
+    Qux,
 }";
 
         compare_strings(expected, create_spec_enum_simple().to_rust());
@@ -306,12 +325,12 @@ pub enum TestEnum {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-\tFoo,
-\tBar(bool),
-\tQux {
-\t\tsub1: u32,
-\t\tsub2: String,
-\t},
+    Foo,
+    Bar(bool),
+    Qux {
+        sub1: u32,
+        sub2: String,
+    },
 }";
 
         compare_strings(expected, create_spec_enum_complex().to_rust());
@@ -345,10 +364,10 @@ pub enum TestEnum {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-\tBar(Vec<u32>),
-\tQux {
-\t\tsub1: Vec<bool>,
-\t},
+    Bar(Vec<u32>),
+    Qux {
+        sub1: Vec<bool>,
+    },
 }";
 
         compare_strings(expected, create_spec_enum_with_vec().to_rust());
@@ -382,10 +401,10 @@ pub enum TestEnum {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = \"var\", content = \"vardata\")]
 pub enum TestEnum {
-\tBar(Option<u32>),
-\tQux {
-\t\tsub1: Option<bool>,
-\t},
+    Bar(Option<u32>),
+    Qux {
+        sub1: Option<bool>,
+    },
 }";
 
         compare_strings(expected, create_spec_enum_with_option().to_rust());

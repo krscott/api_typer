@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub const INDENT: &str = "    ";
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum BasicApiType {
     String,
