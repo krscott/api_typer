@@ -1,5 +1,9 @@
 use crate::spec::*;
 
+pub fn to_elm(spec: &ApiSpec) -> String {
+    spec.to_elm()
+}
+
 pub trait ElmTyper {
     fn to_elm(&self) -> String;
     fn to_elm_decoder(&self) -> String {

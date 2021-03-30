@@ -3,7 +3,8 @@ mod rust_typer;
 mod spec;
 mod typescript_typer;
 
-pub use elm_typer::ElmTyper;
-pub use rust_typer::RustTyper;
 pub use spec::*;
-pub use typescript_typer::TypescriptTyper;
+
+pub use elm_typer::{to_elm, ElmTyper};
+pub use rust_typer::{to_rust, RustTyper};
+pub use typescript_typer::{to_typescript, TypescriptTyper};

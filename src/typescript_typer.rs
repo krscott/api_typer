@@ -1,5 +1,9 @@
 use crate::spec::*;
 
+pub fn to_typescript(spec: &ApiSpec) -> String {
+    spec.to_typescript()
+}
+
 pub trait TypescriptTyper {
     fn to_typescript(&self) -> String;
 }
