@@ -11,6 +11,7 @@ pub enum BasicApiType {
     Double,
     Bool,
     Custom(String),
+    Recursive(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

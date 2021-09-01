@@ -12,6 +12,7 @@ impl TypescriptTyper for BasicApiType {
     fn to_typescript(&self) -> String {
         match self {
             BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::Recursive(s) => s.clone(),
             BasicApiType::String => String::from("string"),
             BasicApiType::Int => String::from("number"),
             BasicApiType::Uint => String::from("number"),

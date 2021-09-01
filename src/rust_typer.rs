@@ -16,6 +16,7 @@ impl RustTyper for BasicApiType {
     fn to_rust(&self) -> String {
         match self {
             BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::Recursive(s) => format!("Box<{}>", s),
             BasicApiType::String => String::from("String"),
             BasicApiType::Int => String::from("i32"),
             BasicApiType::Uint => String::from("u32"),

@@ -18,6 +18,7 @@ impl ElmTyper for BasicApiType {
     fn to_elm(&self) -> String {
         match self {
             BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::Recursive(s) => s.clone(),
             BasicApiType::String => String::from("String"),
             BasicApiType::Int => String::from("Int"),
             BasicApiType::Uint => String::from("Int"),
