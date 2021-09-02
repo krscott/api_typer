@@ -415,40 +415,12 @@ fn elm_json_decoder(data: &ApiType) -> String {
             }
         }
         ApiType::Complex(ComplexApiType::Option(t)) => {
-            format!("(Json.Decode.nullable {})", elm_json_encoder(t))
+            format!("(Json.Decode.nullable {})", elm_json_decoder(t))
         }
         ApiType::Complex(ComplexApiType::Array(t)) => {
-            format!("(Json.Decode.List {})", elm_json_encoder(t))
+            format!("(Json.Decode.list {})", elm_json_decoder(t))
         }
     }
-
-    // let supported_types = ["String", "Int", "Float", "Bool", "List"];
-
-    // // Unwrap parens
-    // while elm_type.chars().next() == Some('(') && elm_type.chars().last() == Some(')') {
-    //     elm_type = &elm_type[1..elm_type.len() - 1];
-    // }
-
-    // let decoders = elm_type
-    //     .split(' ')
-    //     .map(|t| {
-    //         if supported_types.contains(&t) {
-    //             format!("Json.Decode.{}", t.to_lowercase())
-    //         } else if t == "Maybe" {
-    //             String::from("Json.Decode.nullable")
-    //         } else {
-    //             eprintln!("{}", elm_type);
-    //             panic!();
-    //             format!("decode{}", t)
-    //         }
-    //     })
-    //     .collect::<Vec<_>>();
-
-    // if decoders.len() > 1 {
-    //     format!("({})", decoders.join(" "))
-    // } else {
-    //     decoders.join(" ")
-    // }
 }
 
 fn elm_json_encoder(data: &ApiType) -> String {
@@ -468,7 +440,7 @@ fn elm_json_encoder(data: &ApiType) -> String {
             format!("(Json.Encode.Extra.maybe {})", elm_json_encoder(t))
         }
         ApiType::Complex(ComplexApiType::Array(t)) => {
-            format!("(Json.Encode.List {})", elm_json_encoder(t))
+            format!("(Json.Encode.list {})", elm_json_encoder(t))
         }
     }
 }
@@ -592,12 +564,12 @@ type alias TestStruct =
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
     Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required "foo" (Json.Decode.List Json.Encode.int)
+        |> Json.Decode.Pipeline.required "foo" (Json.Decode.list Json.Decode.int)
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
     Json.Encode.object
-        [ ("foo", (Json.Encode.List Json.Encode.int) <| record.foo)
+        [ ("foo", (Json.Encode.list Json.Encode.int) <| record.foo)
         ]
 "#
         .trim();
@@ -636,7 +608,7 @@ type alias TestStruct =
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
     Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required "foo" (Json.Decode.nullable Json.Encode.int)
+        |> Json.Decode.Pipeline.required "foo" (Json.Decode.nullable Json.Decode.int)
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
@@ -856,7 +828,7 @@ type alias TestEnumQux =
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
     Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required "sub1" (Json.Decode.List Json.Encode.bool)
+        |> Json.Decode.Pipeline.required "sub1" (Json.Decode.list Json.Decode.bool)
 
 type TestEnum
     = Bar (List Int)
@@ -866,7 +838,7 @@ decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
     Json.Decode.oneOf
         [ Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Bar") <|
-            Json.Decode.map Bar (Json.Decode.field "vardata" <| (Json.Decode.List Json.Encode.int))
+            Json.Decode.map Bar (Json.Decode.field "vardata" <| (Json.Decode.list Json.Decode.int))
         , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Qux") <|
             Json.Decode.map Qux (Json.Decode.field "vardata" <| decodeTestEnumQux)
         ]
@@ -877,13 +849,13 @@ encodeTestEnum var =
         Bar value ->
             Json.Encode.object
                 [ ( "var", Json.Encode.string "Bar" )
-                , ( "vardata", (Json.Encode.List Json.Encode.int) <| value )
+                , ( "vardata", (Json.Encode.list Json.Encode.int) <| value )
                 ]
         Qux record ->
             Json.Encode.object
                 [ ( "var", Json.Encode.string "Qux" )
                 , ( "vardata", Json.Encode.object
-                    [ ( "sub1", (Json.Encode.List Json.Encode.bool) <| record.sub1 )
+                    [ ( "sub1", (Json.Encode.list Json.Encode.bool) <| record.sub1 )
                     ] )
                 ]
 "#
@@ -932,7 +904,7 @@ type alias TestEnumQux =
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
     Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required "sub1" (Json.Decode.nullable Json.Encode.bool)
+        |> Json.Decode.Pipeline.required "sub1" (Json.Decode.nullable Json.Decode.bool)
 
 type TestEnum
     = Bar (Maybe Int)
@@ -942,7 +914,7 @@ decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
     Json.Decode.oneOf
         [ Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Bar") <|
-            Json.Decode.map Bar (Json.Decode.field "vardata" <| (Json.Decode.nullable Json.Encode.int))
+            Json.Decode.map Bar (Json.Decode.field "vardata" <| (Json.Decode.nullable Json.Decode.int))
         , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Qux") <|
             Json.Decode.map Qux (Json.Decode.field "vardata" <| decodeTestEnumQux)
         ]
@@ -1000,7 +972,7 @@ type alias TestStruct =
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
     Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required "x" (Json.Decode.nullable (Json.Encode.Extra.maybe Json.Encode.int))
+        |> Json.Decode.Pipeline.required "x" (Json.Decode.nullable (Json.Decode.nullable Json.Decode.int))
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
@@ -1045,12 +1017,12 @@ type alias TestStruct =
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
     Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required "x" (Json.Decode.List (Json.Encode.List Json.Encode.int))
+        |> Json.Decode.Pipeline.required "x" (Json.Decode.list (Json.Decode.list Json.Decode.int))
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
     Json.Encode.object
-        [ ("x", (Json.Encode.List (Json.Encode.List Json.Encode.int)) <| record.x)
+        [ ("x", (Json.Encode.list (Json.Encode.list Json.Encode.int)) <| record.x)
         ]
 "#
         .trim();
