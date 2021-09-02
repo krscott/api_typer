@@ -31,11 +31,11 @@ impl RustTyper for ApiType {
     fn to_rust(&self) -> String {
         match self {
             ApiType::Basic(basic_type) => basic_type.to_rust(),
-            ApiType::Complex(ComplexApiType::Option(basic_type)) => {
-                format!("Option<{}>", basic_type.to_rust())
+            ApiType::Complex(ComplexApiType::Option(inner_type)) => {
+                format!("Option<{}>", inner_type.to_rust())
             }
-            ApiType::Complex(ComplexApiType::Array(basic_type)) => {
-                format!("Vec<{}>", basic_type.to_rust())
+            ApiType::Complex(ComplexApiType::Array(inner_type)) => {
+                format!("Vec<{}>", inner_type.to_rust())
             }
         }
     }
@@ -409,5 +409,57 @@ pub enum TestEnum {
 }";
 
         compare_strings(expected, create_spec_enum_with_option().to_rust());
+    }
+
+    fn create_spec_nested_option() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Option(Box::new(ApiType::option(
+                        BasicApiType::Uint,
+                    )))),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_nested_option() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestStruct {
+    pub x: Option<Option<u32>>,
+}";
+
+        compare_strings(expected, create_spec_nested_option().to_rust());
+    }
+
+    fn create_spec_nested_array() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Array(Box::new(ApiType::array(
+                        BasicApiType::Uint,
+                    )))),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_nested_array() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestStruct {
+    pub x: Vec<Vec<u32>>,
+}";
+
+        compare_strings(expected, create_spec_nested_array().to_rust());
     }
 }

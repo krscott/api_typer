@@ -16,8 +16,8 @@ pub enum BasicApiType {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ComplexApiType {
-    Option(BasicApiType),
-    Array(BasicApiType),
+    Option(Box<ApiType>),
+    Array(Box<ApiType>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -33,11 +33,11 @@ impl ApiType {
     }
 
     pub fn option(basic_type: BasicApiType) -> Self {
-        Self::Complex(ComplexApiType::Option(basic_type))
+        Self::Complex(ComplexApiType::Option(Box::new(Self::Basic(basic_type))))
     }
 
     pub fn array(basic_type: BasicApiType) -> Self {
-        Self::Complex(ComplexApiType::Array(basic_type))
+        Self::Complex(ComplexApiType::Array(Box::new(Self::Basic(basic_type))))
     }
 }
 

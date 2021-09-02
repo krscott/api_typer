@@ -31,13 +31,28 @@ impl ElmTyper for BasicApiType {
 
 impl ElmTyper for ApiType {
     fn to_elm(&self) -> String {
+        fn use_parens(inner_type: &ApiType) -> bool {
+            match inner_type {
+                ApiType::Basic(_) => false,
+                ApiType::Complex(_) => true,
+            }
+        }
+
         match self {
             ApiType::Basic(basic_type) => basic_type.to_elm(),
-            ApiType::Complex(ComplexApiType::Option(basic_type)) => {
-                format!("Maybe {}", basic_type.to_elm())
+            ApiType::Complex(ComplexApiType::Option(inner_type)) => {
+                if use_parens(inner_type) {
+                    format!("Maybe ({})", inner_type.to_elm())
+                } else {
+                    format!("Maybe {}", inner_type.to_elm())
+                }
             }
-            ApiType::Complex(ComplexApiType::Array(basic_type)) => {
-                format!("List {}", basic_type.to_elm())
+            ApiType::Complex(ComplexApiType::Array(inner_type)) => {
+                if use_parens(inner_type) {
+                    format!("List ({})", inner_type.to_elm())
+                } else {
+                    format!("List {}", inner_type.to_elm())
+                }
             }
         }
     }
@@ -269,22 +284,18 @@ impl ElmTyper for StructField {
     }
 
     fn to_elm_decoder(&self) -> String {
-        let elm_type = self.data.to_elm();
-
         format!(
             "Json.Decode.Pipeline.required \"{name}\" {decoder}",
             name = self.name,
-            decoder = elm_json_decoder(&elm_type)
+            decoder = elm_json_decoder(&self.data)
         )
     }
 
     fn to_elm_encoder(&self) -> String {
-        let elm_type = self.data.to_elm();
-
         format!(
             "(\"{name}\", {encoder} <| record.{name})",
             name = self.name,
-            encoder = elm_json_encoder(&elm_type)
+            encoder = elm_json_encoder(&self.data)
         )
     }
 }
@@ -317,12 +328,11 @@ impl ElmTyper for EnumVariant {
                 name = self.name, indent = INDENT,
             ),
             EnumVariantData::Single(api_type) => {
-                let elm_type = api_type.to_elm();
                 format!(
                     "Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"{name}\") <|\n\
                     {indent}{indent}{indent}Json.Decode.map {name} (Json.Decode.field \"vardata\" <| {decoder})",
                     name = self.name,
-                    decoder = elm_json_decoder(&elm_type), indent = INDENT,
+                    decoder = elm_json_decoder(api_type), indent = INDENT,
                 )
             },
             EnumVariantData::Struct(_) => {
@@ -343,7 +353,6 @@ impl ElmTyper for EnumVariant {
                 indent = INDENT
             ),
             EnumVariantData::Single(api_type) => {
-                let elm_type = api_type.to_elm();
                 format!(
                     "\n\
                     {indent}{indent}{name} value ->\n\
@@ -352,7 +361,7 @@ impl ElmTyper for EnumVariant {
                     {indent}{indent}{indent}{indent}, ( \"vardata\", {encoder} <| value )\n\
                     {indent}{indent}{indent}{indent}]",
                     name = self.name,
-                    encoder = elm_json_encoder(&elm_type),
+                    encoder = elm_json_encoder(api_type),
                     indent = INDENT
                 )
             }
@@ -368,7 +377,7 @@ impl ElmTyper for EnumVariant {
                         format!(
                             " ( \"{name}\", {encoder} <| record.{name} )",
                             name = field.name,
-                            encoder = elm_json_encoder(&field.data.to_elm())
+                            encoder = elm_json_encoder(&field.data)
                         )
                     })
                     .collect::<Vec<_>>()
@@ -392,45 +401,76 @@ impl ElmTyper for EnumVariant {
     }
 }
 
-fn elm_json_decoder(elm_type: &str) -> String {
-    let supported_types = ["String", "Int", "Float", "Bool", "List"];
+fn elm_json_decoder(data: &ApiType) -> String {
+    match data {
+        ApiType::Basic(t) => {
+            const JSON_ENCODE_TYPES: &[&str] = &["String", "Int", "Float", "Bool"];
 
-    let decoders = elm_type
-        .split(' ')
-        .map(|t| {
-            if supported_types.contains(&t) {
+            let t = t.to_elm();
+
+            if JSON_ENCODE_TYPES.contains(&t.as_str()) {
                 format!("Json.Decode.{}", t.to_lowercase())
-            } else if t == "Maybe" {
-                String::from("Json.Decode.nullable")
             } else {
                 format!("decode{}", t)
             }
-        })
-        .collect::<Vec<_>>();
-
-    if decoders.len() > 1 {
-        format!("({})", decoders.join(" "))
-    } else {
-        decoders.join(" ")
+        }
+        ApiType::Complex(ComplexApiType::Option(t)) => {
+            format!("(Json.Decode.nullable {})", elm_json_encoder(t))
+        }
+        ApiType::Complex(ComplexApiType::Array(t)) => {
+            format!("(Json.Decode.List {})", elm_json_encoder(t))
+        }
     }
+
+    // let supported_types = ["String", "Int", "Float", "Bool", "List"];
+
+    // // Unwrap parens
+    // while elm_type.chars().next() == Some('(') && elm_type.chars().last() == Some(')') {
+    //     elm_type = &elm_type[1..elm_type.len() - 1];
+    // }
+
+    // let decoders = elm_type
+    //     .split(' ')
+    //     .map(|t| {
+    //         if supported_types.contains(&t) {
+    //             format!("Json.Decode.{}", t.to_lowercase())
+    //         } else if t == "Maybe" {
+    //             String::from("Json.Decode.nullable")
+    //         } else {
+    //             eprintln!("{}", elm_type);
+    //             panic!();
+    //             format!("decode{}", t)
+    //         }
+    //     })
+    //     .collect::<Vec<_>>();
+
+    // if decoders.len() > 1 {
+    //     format!("({})", decoders.join(" "))
+    // } else {
+    //     decoders.join(" ")
+    // }
 }
 
-fn elm_json_encoder(elm_type: &str) -> String {
-    let supported_types = ["String", "Int", "Float", "Bool", "List"];
+fn elm_json_encoder(data: &ApiType) -> String {
+    match data {
+        ApiType::Basic(t) => {
+            const JSON_ENCODE_TYPES: &[&str] = &["String", "Int", "Float", "Bool"];
 
-    elm_type
-        .split(' ')
-        .map(|t| {
-            if supported_types.contains(&t) {
+            let t = t.to_elm();
+
+            if JSON_ENCODE_TYPES.contains(&t.as_str()) {
                 format!("Json.Encode.{}", t.to_lowercase())
-            } else if t == "Maybe" {
-                String::from("Json.Encode.Extra.maybe")
             } else {
                 format!("encode{}", t)
             }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+        }
+        ApiType::Complex(ComplexApiType::Option(t)) => {
+            format!("(Json.Encode.Extra.maybe {})", elm_json_encoder(t))
+        }
+        ApiType::Complex(ComplexApiType::Array(t)) => {
+            format!("(Json.Encode.List {})", elm_json_encoder(t))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -489,7 +529,7 @@ import Json.Encode.Extra
 
     #[test]
     fn elm_struct_simple() {
-        let expected = "\
+        let expected = r#"
 module TestType exposing (TestStruct, decodeTestStruct, encodeTestStruct)
 
 import Json.Decode
@@ -506,15 +546,17 @@ type alias TestStruct =
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
     Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required \"foo\" Json.Decode.int
-        |> Json.Decode.Pipeline.required \"bar\" Json.Decode.string
+        |> Json.Decode.Pipeline.required "foo" Json.Decode.int
+        |> Json.Decode.Pipeline.required "bar" Json.Decode.string
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
     Json.Encode.object
-        [ (\"foo\", Json.Encode.int <| record.foo)
-        , (\"bar\", Json.Encode.string <| record.bar)
-        ]";
+        [ ("foo", Json.Encode.int <| record.foo)
+        , ("bar", Json.Encode.string <| record.bar)
+        ]
+"#
+        .trim();
 
         compare_strings(expected, create_spec_struct_simple().to_elm());
     }
@@ -534,7 +576,7 @@ encodeTestStruct record =
 
     #[test]
     fn elm_struct_with_vec() {
-        let expected = "\
+        let expected = r#"
 module TestType exposing (TestStruct, decodeTestStruct, encodeTestStruct)
 
 import Json.Decode
@@ -550,13 +592,15 @@ type alias TestStruct =
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
     Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required \"foo\" (Json.Decode.list Json.Decode.int)
+        |> Json.Decode.Pipeline.required "foo" (Json.Decode.List Json.Encode.int)
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
     Json.Encode.object
-        [ (\"foo\", Json.Encode.list Json.Encode.int <| record.foo)
-        ]";
+        [ ("foo", (Json.Encode.List Json.Encode.int) <| record.foo)
+        ]
+"#
+        .trim();
 
         compare_strings(expected, create_spec_struct_with_vec().to_elm());
     }
@@ -576,7 +620,7 @@ encodeTestStruct record =
 
     #[test]
     fn elm_struct_with_option() {
-        let expected = "\
+        let expected = r#"
 module TestType exposing (TestStruct, decodeTestStruct, encodeTestStruct)
 
 import Json.Decode
@@ -592,13 +636,15 @@ type alias TestStruct =
 decodeTestStruct : Json.Decode.Decoder TestStruct
 decodeTestStruct =
     Json.Decode.succeed TestStruct
-        |> Json.Decode.Pipeline.required \"foo\" (Json.Decode.nullable Json.Decode.int)
+        |> Json.Decode.Pipeline.required "foo" (Json.Decode.nullable Json.Encode.int)
 
 encodeTestStruct : TestStruct -> Json.Encode.Value
 encodeTestStruct record =
     Json.Encode.object
-        [ (\"foo\", Json.Encode.Extra.maybe Json.Encode.int <| record.foo)
-        ]";
+        [ ("foo", (Json.Encode.Extra.maybe Json.Encode.int) <| record.foo)
+        ]
+"#
+        .trim();
 
         compare_strings(expected, create_spec_struct_with_option().to_elm());
     }
@@ -628,7 +674,7 @@ encodeTestStruct record =
 
     #[test]
     fn elm_enum_simple() {
-        let expected = "\
+        let expected = r#"
 module TestType exposing (TestEnum(..), decodeTestEnum, encodeTestEnum)
 
 import Json.Decode
@@ -645,11 +691,11 @@ type TestEnum
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
     Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Foo\") <|
+        [ Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Foo") <|
             Json.Decode.succeed Foo
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
+        , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Bar") <|
             Json.Decode.succeed Bar
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
+        , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Qux") <|
             Json.Decode.succeed Qux
         ]
 
@@ -658,16 +704,18 @@ encodeTestEnum var =
     case var of
         Foo ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Foo\" )
+                [ ( "var", Json.Encode.string "Foo" )
                 ]
         Bar ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
+                [ ( "var", Json.Encode.string "Bar" )
                 ]
         Qux ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                ]";
+                [ ( "var", Json.Encode.string "Qux" )
+                ]
+"#
+        .trim();
 
         compare_strings(expected, create_spec_enum_simple().to_elm());
     }
@@ -706,7 +754,7 @@ encodeTestEnum var =
 
     #[test]
     fn elm_enum_complex() {
-        let expected = "\
+        let expected = r#"
 module TestType exposing (TestEnum(..), decodeTestEnum, encodeTestEnum)
 
 import Json.Decode
@@ -723,8 +771,8 @@ type alias TestEnumQux =
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
     Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required \"sub1\" Json.Decode.int
-        |> Json.Decode.Pipeline.required \"sub2\" Json.Decode.string
+        |> Json.Decode.Pipeline.required "sub1" Json.Decode.int
+        |> Json.Decode.Pipeline.required "sub2" Json.Decode.string
 
 type TestEnum
     = Foo
@@ -734,12 +782,12 @@ type TestEnum
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
     Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Foo\") <|
+        [ Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Foo") <|
             Json.Decode.succeed Foo
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
-            Json.Decode.map Bar (Json.Decode.field \"vardata\" <| Json.Decode.bool)
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
-            Json.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
+        , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Bar") <|
+            Json.Decode.map Bar (Json.Decode.field "vardata" <| Json.Decode.bool)
+        , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Qux") <|
+            Json.Decode.map Qux (Json.Decode.field "vardata" <| decodeTestEnumQux)
         ]
 
 encodeTestEnum : TestEnum -> Json.Encode.Value
@@ -747,21 +795,23 @@ encodeTestEnum var =
     case var of
         Foo ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Foo\" )
+                [ ( "var", Json.Encode.string "Foo" )
                 ]
         Bar value ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
-                , ( \"vardata\", Json.Encode.bool <| value )
+                [ ( "var", Json.Encode.string "Bar" )
+                , ( "vardata", Json.Encode.bool <| value )
                 ]
         Qux record ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                , ( \"vardata\", Json.Encode.object
-                    [ ( \"sub1\", Json.Encode.int <| record.sub1 )
-                    , ( \"sub2\", Json.Encode.string <| record.sub2 )
+                [ ( "var", Json.Encode.string "Qux" )
+                , ( "vardata", Json.Encode.object
+                    [ ( "sub1", Json.Encode.int <| record.sub1 )
+                    , ( "sub2", Json.Encode.string <| record.sub2 )
                     ] )
-                ]";
+                ]
+"#
+        .trim();
 
         compare_strings(expected, create_spec_enum_complex().to_elm());
     }
@@ -790,7 +840,7 @@ encodeTestEnum var =
 
     #[test]
     fn elm_enum_with_vec() {
-        let expected = "\
+        let expected = r#"
 module TestType exposing (TestEnum(..), decodeTestEnum, encodeTestEnum)
 
 import Json.Decode
@@ -806,7 +856,7 @@ type alias TestEnumQux =
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
     Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required \"sub1\" (Json.Decode.list Json.Decode.bool)
+        |> Json.Decode.Pipeline.required "sub1" (Json.Decode.List Json.Encode.bool)
 
 type TestEnum
     = Bar (List Int)
@@ -815,10 +865,10 @@ type TestEnum
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
     Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
-            Json.Decode.map Bar (Json.Decode.field \"vardata\" <| (Json.Decode.list Json.Decode.int))
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
-            Json.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
+        [ Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Bar") <|
+            Json.Decode.map Bar (Json.Decode.field "vardata" <| (Json.Decode.List Json.Encode.int))
+        , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Qux") <|
+            Json.Decode.map Qux (Json.Decode.field "vardata" <| decodeTestEnumQux)
         ]
 
 encodeTestEnum : TestEnum -> Json.Encode.Value
@@ -826,16 +876,18 @@ encodeTestEnum var =
     case var of
         Bar value ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
-                , ( \"vardata\", Json.Encode.list Json.Encode.int <| value )
+                [ ( "var", Json.Encode.string "Bar" )
+                , ( "vardata", (Json.Encode.List Json.Encode.int) <| value )
                 ]
         Qux record ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                , ( \"vardata\", Json.Encode.object
-                    [ ( \"sub1\", Json.Encode.list Json.Encode.bool <| record.sub1 )
+                [ ( "var", Json.Encode.string "Qux" )
+                , ( "vardata", Json.Encode.object
+                    [ ( "sub1", (Json.Encode.List Json.Encode.bool) <| record.sub1 )
                     ] )
-                ]";
+                ]
+"#
+        .trim();
 
         compare_strings(expected, create_spec_enum_with_vec().to_elm());
     }
@@ -864,7 +916,7 @@ encodeTestEnum var =
 
     #[test]
     fn elm_enum_with_option() {
-        let expected = "\
+        let expected = r#"
 module TestType exposing (TestEnum(..), decodeTestEnum, encodeTestEnum)
 
 import Json.Decode
@@ -880,7 +932,7 @@ type alias TestEnumQux =
 decodeTestEnumQux : Json.Decode.Decoder TestEnumQux
 decodeTestEnumQux =
     Json.Decode.succeed TestEnumQux
-        |> Json.Decode.Pipeline.required \"sub1\" (Json.Decode.nullable Json.Decode.bool)
+        |> Json.Decode.Pipeline.required "sub1" (Json.Decode.nullable Json.Encode.bool)
 
 type TestEnum
     = Bar (Maybe Int)
@@ -889,10 +941,10 @@ type TestEnum
 decodeTestEnum : Json.Decode.Decoder TestEnum
 decodeTestEnum =
     Json.Decode.oneOf
-        [ Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Bar\") <|
-            Json.Decode.map Bar (Json.Decode.field \"vardata\" <| (Json.Decode.nullable Json.Decode.int))
-        , Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"Qux\") <|
-            Json.Decode.map Qux (Json.Decode.field \"vardata\" <| decodeTestEnumQux)
+        [ Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Bar") <|
+            Json.Decode.map Bar (Json.Decode.field "vardata" <| (Json.Decode.nullable Json.Encode.int))
+        , Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Qux") <|
+            Json.Decode.map Qux (Json.Decode.field "vardata" <| decodeTestEnumQux)
         ]
 
 encodeTestEnum : TestEnum -> Json.Encode.Value
@@ -900,17 +952,109 @@ encodeTestEnum var =
     case var of
         Bar value ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Bar\" )
-                , ( \"vardata\", Json.Encode.Extra.maybe Json.Encode.int <| value )
+                [ ( "var", Json.Encode.string "Bar" )
+                , ( "vardata", (Json.Encode.Extra.maybe Json.Encode.int) <| value )
                 ]
         Qux record ->
             Json.Encode.object
-                [ ( \"var\", Json.Encode.string \"Qux\" )
-                , ( \"vardata\", Json.Encode.object
-                    [ ( \"sub1\", Json.Encode.Extra.maybe Json.Encode.bool <| record.sub1 )
+                [ ( "var", Json.Encode.string "Qux" )
+                , ( "vardata", Json.Encode.object
+                    [ ( "sub1", (Json.Encode.Extra.maybe Json.Encode.bool) <| record.sub1 )
                     ] )
-                ]";
+                ]
+"#.trim();
 
         compare_strings(expected, create_spec_enum_with_option().to_elm());
+    }
+
+    fn create_spec_nested_option() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Option(Box::new(ApiType::option(
+                        BasicApiType::Uint,
+                    )))),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn elm_nested_option() {
+        let expected = r#"
+module TestType exposing (TestStruct, decodeTestStruct, encodeTestStruct)
+
+import Json.Decode
+import Json.Decode.Extra
+import Json.Decode.Pipeline
+import Json.Encode
+import Json.Encode.Extra
+
+type alias TestStruct =
+    { x : (Maybe (Maybe Int))
+    }
+
+decodeTestStruct : Json.Decode.Decoder TestStruct
+decodeTestStruct =
+    Json.Decode.succeed TestStruct
+        |> Json.Decode.Pipeline.required "x" (Json.Decode.nullable (Json.Encode.Extra.maybe Json.Encode.int))
+
+encodeTestStruct : TestStruct -> Json.Encode.Value
+encodeTestStruct record =
+    Json.Encode.object
+        [ ("x", (Json.Encode.Extra.maybe (Json.Encode.Extra.maybe Json.Encode.int)) <| record.x)
+        ]
+"#.trim();
+
+        compare_strings(expected, create_spec_nested_option().to_elm());
+    }
+
+    fn create_spec_nested_array() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Array(Box::new(ApiType::array(
+                        BasicApiType::Uint,
+                    )))),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn elm_nested_array() {
+        let expected = r#"
+module TestType exposing (TestStruct, decodeTestStruct, encodeTestStruct)
+
+import Json.Decode
+import Json.Decode.Extra
+import Json.Decode.Pipeline
+import Json.Encode
+import Json.Encode.Extra
+
+type alias TestStruct =
+    { x : (List (List Int))
+    }
+
+decodeTestStruct : Json.Decode.Decoder TestStruct
+decodeTestStruct =
+    Json.Decode.succeed TestStruct
+        |> Json.Decode.Pipeline.required "x" (Json.Decode.List (Json.Encode.List Json.Encode.int))
+
+encodeTestStruct : TestStruct -> Json.Encode.Value
+encodeTestStruct record =
+    Json.Encode.object
+        [ ("x", (Json.Encode.List (Json.Encode.List Json.Encode.int)) <| record.x)
+        ]
+"#
+        .trim();
+
+        compare_strings(expected, create_spec_nested_array().to_elm());
     }
 }

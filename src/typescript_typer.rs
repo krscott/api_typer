@@ -25,13 +25,26 @@ impl TypescriptTyper for BasicApiType {
 
 impl TypescriptTyper for ApiType {
     fn to_typescript(&self) -> String {
+        fn use_parens(inner_type: &ApiType) -> bool {
+            match inner_type {
+                ApiType::Basic(_) => false,
+                ApiType::Complex(ComplexApiType::Option(_)) => true,
+                ApiType::Complex(ComplexApiType::Array(_)) => false,
+            }
+        }
+
         match self {
             ApiType::Basic(basic_type) => basic_type.to_typescript(),
-            ApiType::Complex(ComplexApiType::Option(basic_type)) => {
-                format!("{} | null", basic_type.to_typescript())
+            ApiType::Complex(ComplexApiType::Option(inner_type)) => {
+                //TODO: Is there a better way to represent nested `Option`s in Typescript?
+                if use_parens(inner_type) {
+                    format!("({}) | null", inner_type.to_typescript())
+                } else {
+                    format!("{} | null", inner_type.to_typescript())
+                }
             }
-            ApiType::Complex(ComplexApiType::Array(basic_type)) => {
-                format!("Array<{}>", basic_type.to_typescript())
+            ApiType::Complex(ComplexApiType::Array(inner_type)) => {
+                format!("Array<{}>", inner_type.to_typescript())
             }
         }
     }
@@ -535,5 +548,59 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 "#;
 
         compare_strings(expected, create_spec_enum_with_option().to_typescript());
+    }
+
+    fn create_spec_nested_option() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Option(Box::new(ApiType::option(
+                        BasicApiType::Uint,
+                    )))),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_nested_option() {
+        let expected = r#"
+export interface TestStruct {
+    x: (number | null) | null,
+}
+"#
+        .trim();
+
+        compare_strings(expected, create_spec_nested_option().to_typescript());
+    }
+
+    fn create_spec_nested_array() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Array(Box::new(ApiType::array(
+                        BasicApiType::Uint,
+                    )))),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_nested_array() {
+        let expected = r#"
+export interface TestStruct {
+    x: Array<Array<number>>,
+}
+"#
+        .trim();
+
+        compare_strings(expected, create_spec_nested_array().to_typescript());
     }
 }
