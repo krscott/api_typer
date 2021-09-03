@@ -12,6 +12,10 @@ Also generates some useful helper functions.
   * Generates JSON encoder/decoder functions
   * *Note: some type combinations (e.g. non-String Map keys) are not implemented*
 
+## Use
+Typical use case: In `build.rs`, create (or deserialize from a config file) an `ApiType`
+and write the outputs to your source directories.
+
 ## Example
 See the `mod tests` sections of each `src/*_typer.rs` file for examples.
 
