@@ -18,6 +18,7 @@ pub enum BasicApiType {
 pub enum ComplexApiType {
     Option(Box<ApiType>),
     Array(Box<ApiType>),
+    Map(BasicApiType, Box<ApiType>)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -54,6 +54,16 @@ impl ElmTyper for ApiType {
                     format!("List {}", inner_type.to_elm())
                 }
             }
+            ApiType::Complex(ComplexApiType::Map(key_type @ BasicApiType::String, value_type)) => {
+                if use_parens(value_type) {
+                    format!("Dict {} ({})", key_type.to_elm(), value_type.to_elm())
+                } else {
+                    format!("Dict {} {}", key_type.to_elm(), value_type.to_elm())
+                }
+            }
+            ApiType::Complex(ComplexApiType::Map(key_type, _)) => {
+                unimplemented!("Dict key type '{}' not supported", key_type.to_elm())
+            }
         }
     }
 }
@@ -84,6 +94,12 @@ impl ElmTyper for ApiSpec {
             .collect::<Vec<_>>()
             .join("\n\n");
 
+        let dict_import = if types_str.contains("Dict ") {
+            "import Dict exposing (Dict)\n"
+        } else {
+            ""
+        };
+
         format!(
             "\
             module {name} exposing ({exports})\n\
@@ -93,10 +109,12 @@ impl ElmTyper for ApiSpec {
             import Json.Decode.Pipeline\n\
             import Json.Encode\n\
             import Json.Encode.Extra\n\
+            {dict_import}\
             \n\
             {types}",
             name = self.module,
             exports = exports_str,
+            dict_import = dict_import,
             types = types_str
         )
     }
@@ -420,6 +438,12 @@ fn elm_json_decoder(data: &ApiType) -> String {
         ApiType::Complex(ComplexApiType::Array(t)) => {
             format!("(Json.Decode.list {})", elm_json_decoder(t))
         }
+        ApiType::Complex(ComplexApiType::Map(BasicApiType::String, value_type)) => {
+            format!("(Json.Decode.dict {})", value_type.to_elm())
+        }
+        ApiType::Complex(ComplexApiType::Map(key_type, _)) => {
+            unimplemented!("Dict key type '{}' not supported", key_type.to_elm())
+        }
     }
 }
 
@@ -441,6 +465,12 @@ fn elm_json_encoder(data: &ApiType) -> String {
         }
         ApiType::Complex(ComplexApiType::Array(t)) => {
             format!("(Json.Encode.list {})", elm_json_encoder(t))
+        }
+        ApiType::Complex(ComplexApiType::Map(BasicApiType::String, value_type)) => {
+            format!("(Json.Encode.dict identity {})", value_type.to_elm())
+        }
+        ApiType::Complex(ComplexApiType::Map(key_type, _)) => {
+            unimplemented!("Dict key type '{}' not supported", key_type.to_elm())
         }
     }
 }
@@ -1028,5 +1058,53 @@ encodeTestStruct record =
         .trim();
 
         compare_strings(expected, create_spec_nested_array().to_elm());
+    }
+
+    fn create_spec_map() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Map(
+                        BasicApiType::String,
+                        Box::new(ApiType::Basic(BasicApiType::Int)),
+                    )),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn elm_map() {
+        let expected = r#"
+module TestType exposing (TestStruct, decodeTestStruct, encodeTestStruct)
+
+import Json.Decode
+import Json.Decode.Extra
+import Json.Decode.Pipeline
+import Json.Encode
+import Json.Encode.Extra
+import Dict exposing (Dict)
+
+type alias TestStruct =
+    { x : (Dict String Int)
+    }
+
+decodeTestStruct : Json.Decode.Decoder TestStruct
+decodeTestStruct =
+    Json.Decode.succeed TestStruct
+        |> Json.Decode.Pipeline.required "x" (Json.Decode.dict Int)
+
+encodeTestStruct : TestStruct -> Json.Encode.Value
+encodeTestStruct record =
+    Json.Encode.object
+        [ ("x", (Json.Encode.dict identity Int) <| record.x)
+        ]
+"#
+        .trim();
+
+        compare_strings(expected, create_spec_map().to_elm());
     }
 }

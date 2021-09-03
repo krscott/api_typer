@@ -37,6 +37,13 @@ impl RustTyper for ApiType {
             ApiType::Complex(ComplexApiType::Array(inner_type)) => {
                 format!("Vec<{}>", inner_type.to_rust())
             }
+            ApiType::Complex(ComplexApiType::Map(key_type, value_type)) => {
+                format!(
+                    "std::collections::HashMap<{}, {}>",
+                    key_type.to_rust(),
+                    value_type.to_rust()
+                )
+            }
         }
     }
 }
@@ -461,5 +468,33 @@ pub struct TestStruct {
 }";
 
         compare_strings(expected, create_spec_nested_array().to_rust());
+    }
+
+    fn create_spec_map() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Map(
+                        BasicApiType::String,
+                        Box::new(ApiType::Basic(BasicApiType::Int)),
+                    )),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_map() {
+        let expected = r#"
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestStruct {
+    pub x: std::collections::HashMap<String, i32>,
+}"#
+        .trim();
+
+        compare_strings(expected, create_spec_map().to_rust());
     }
 }

@@ -30,6 +30,7 @@ impl TypescriptTyper for ApiType {
                 ApiType::Basic(_) => false,
                 ApiType::Complex(ComplexApiType::Option(_)) => true,
                 ApiType::Complex(ComplexApiType::Array(_)) => false,
+                ApiType::Complex(ComplexApiType::Map(_, _)) => false,
             }
         }
 
@@ -45,6 +46,13 @@ impl TypescriptTyper for ApiType {
             }
             ApiType::Complex(ComplexApiType::Array(inner_type)) => {
                 format!("Array<{}>", inner_type.to_typescript())
+            }
+            ApiType::Complex(ComplexApiType::Map(key_type, value_type)) => {
+                format!(
+                    "{{[key: {}]: {}}}",
+                    key_type.to_typescript(),
+                    value_type.to_typescript()
+                )
             }
         }
     }
@@ -602,5 +610,33 @@ export interface TestStruct {
         .trim();
 
         compare_strings(expected, create_spec_nested_array().to_typescript());
+    }
+
+    fn create_spec_map() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Complex(ComplexApiType::Map(
+                        BasicApiType::String,
+                        Box::new(ApiType::Basic(BasicApiType::Int)),
+                    )),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_map() {
+        let expected = r#"
+export interface TestStruct {
+    x: {[key: string]: number},
+}
+"#
+        .trim();
+
+        compare_strings(expected, create_spec_map().to_typescript());
     }
 }
