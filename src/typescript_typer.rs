@@ -88,6 +88,24 @@ impl TypescriptTyper for TypeSpec {
                 )
             }
             Self::Enum { name, variants } => {
+                fn vardata_arg(spec: &ApiSpec, data: &EnumVariantData) -> String {
+                    match data {
+                        EnumVariantData::None => String::from(""),
+                        EnumVariantData::Single(api_type) => {
+                            format!("vardata: {}", api_type.to_typescript(spec))
+                        }
+                        EnumVariantData::Struct(fields) => {
+                            let fields_ts = fields
+                                .iter()
+                                .map(|field| field.to_typescript(spec))
+                                .collect::<Vec<_>>()
+                                .join("");
+
+                            format!("vardata: {{\n{}{indent}}}", fields_ts, indent = INDENT)
+                        }
+                    }
+                }
+
                 let sep = format!(" |\n{indent}", indent = INDENT);
 
                 let variants_fmt = variants
@@ -99,34 +117,26 @@ impl TypescriptTyper for TypeSpec {
                 let variant_objs = variants
                     .iter()
                     .map(|var| {
+                        let arg = vardata_arg(spec, &var.data);
+                        let comma_vardata = if arg.is_empty() { "" } else { ", vardata" };
+
                         format!(
-                            "export const {enumname}{varname}Var = \"{varname}\"",
+                            r#"export const {enumname}{varname}Var = "{varname}"
+export const {enumname}{varname} = ({vardata_arg}) => ({{ "var": "{varname}"{comma_vardata} }})"#,
                             varname = var.name,
                             enumname = name,
+                            comma_vardata = comma_vardata,
+                            vardata_arg = arg
                         )
                     })
                     .collect::<Vec<_>>()
-                    .join("\n");
+                    .join("\n\n");
 
                 let match_func = {
                     let match_arms = variants
                         .iter()
                         .map(|EnumVariant { name, data }| {
-                            let vardata_arg = match data {
-                                EnumVariantData::None => String::from(""),
-                                EnumVariantData::Single(api_type) => {
-                                    format!("vardata: {}", api_type.to_typescript(spec))
-                                }
-                                EnumVariantData::Struct(fields) => {
-                                    let fields_ts = fields
-                                        .iter()
-                                        .map(|field| field.to_typescript(spec))
-                                        .collect::<Vec<_>>()
-                                        .join("");
-
-                                    format!("vardata: {{\n{}{indent}}}", fields_ts, indent = INDENT)
-                                }
-                            };
+                            let vardata_arg = vardata_arg(spec, data);
 
                             format!(
                                 "{indent}{}: ({}) => T,\n",
@@ -380,8 +390,13 @@ mod tests {
 )
 
 export const TestEnumFooVar = "Foo"
+export const TestEnumFoo = () => ({ "var": "Foo" })
+
 export const TestEnumBarVar = "Bar"
+export const TestEnumBar = () => ({ "var": "Bar" })
+
 export const TestEnumQuxVar = "Qux"
+export const TestEnumQux = () => ({ "var": "Qux" })
 
 export function matchTestEnum<T>(x: TestEnum, arms: {
     Foo: () => T,
@@ -444,8 +459,16 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 )
 
 export const TestEnumFooVar = "Foo"
+export const TestEnumFoo = () => ({ "var": "Foo" })
+
 export const TestEnumBarVar = "Bar"
+export const TestEnumBar = (vardata: boolean) => ({ "var": "Bar", vardata })
+
 export const TestEnumQuxVar = "Qux"
+export const TestEnumQux = (vardata: {
+        sub1: number,
+        sub2: string,
+    }) => ({ "var": "Qux", vardata })
 
 export function matchTestEnum<T>(x: TestEnum, arms: {
     Foo: () => T,
@@ -499,7 +522,12 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 )
 
 export const TestEnumBarVar = "Bar"
+export const TestEnumBar = (vardata: Array<number>) => ({ "var": "Bar", vardata })
+
 export const TestEnumQuxVar = "Qux"
+export const TestEnumQux = (vardata: {
+        sub1: Array<boolean>,
+    }) => ({ "var": "Qux", vardata })
 
 export function matchTestEnum<T>(x: TestEnum, arms: {
     Bar: (vardata: Array<number>) => T,
@@ -550,7 +578,12 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 )
 
 export const TestEnumBarVar = "Bar"
+export const TestEnumBar = (vardata: number | null) => ({ "var": "Bar", vardata })
+
 export const TestEnumQuxVar = "Qux"
+export const TestEnumQux = (vardata: {
+        sub1: boolean | null,
+    }) => ({ "var": "Qux", vardata })
 
 export function matchTestEnum<T>(x: TestEnum, arms: {
     Bar: (vardata: number | null) => T,
