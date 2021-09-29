@@ -115,7 +115,10 @@ pub enum TypeSpec {
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct ApiSpec {
     pub module: String,
+
+    #[serde(default)]
     pub define_custom: HashMap<String, HashMap<String, String>>,
+
     pub types: Vec<TypeSpec>,
 }
 
