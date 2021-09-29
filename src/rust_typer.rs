@@ -4,18 +4,20 @@ const TYPE_DERIVE_HEADER: &str =
     "#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]";
 const SERDE_ENUM_HEADER: &str = "#[serde(tag = \"var\", content = \"vardata\")]";
 
+const LANG: &str = "rs";
+
 pub fn to_rust(spec: &ApiSpec) -> String {
-    spec.to_rust()
+    spec.to_rust(&spec)
 }
 
 pub trait RustTyper {
-    fn to_rust(&self) -> String;
+    fn to_rust(&self, spec: &ApiSpec) -> String;
 }
 
 impl RustTyper for BasicApiType {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         match self {
-            BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::Custom(s) => spec.get_custom_type(s, LANG),
             BasicApiType::Recursive(s) => format!("Box<{}>", s),
             BasicApiType::String => String::from("String"),
             BasicApiType::Int => String::from("i32"),
@@ -28,20 +30,20 @@ impl RustTyper for BasicApiType {
 }
 
 impl RustTyper for ApiType {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         match self {
-            ApiType::Basic(basic_type) => basic_type.to_rust(),
+            ApiType::Basic(basic_type) => basic_type.to_rust(spec),
             ApiType::Complex(ComplexApiType::Option(inner_type)) => {
-                format!("Option<{}>", inner_type.to_rust())
+                format!("Option<{}>", inner_type.to_rust(spec))
             }
             ApiType::Complex(ComplexApiType::Array(inner_type)) => {
-                format!("Vec<{}>", inner_type.to_rust())
+                format!("Vec<{}>", inner_type.to_rust(spec))
             }
             ApiType::Complex(ComplexApiType::Map(key_type, value_type)) => {
                 format!(
                     "std::collections::HashMap<{}, {}>",
-                    key_type.to_rust(),
-                    value_type.to_rust()
+                    key_type.to_rust(spec),
+                    value_type.to_rust(spec)
                 )
             }
         }
@@ -49,22 +51,22 @@ impl RustTyper for ApiType {
 }
 
 impl RustTyper for ApiSpec {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         self.types
             .iter()
-            .map(|t| t.to_rust())
+            .map(|t| t.to_rust(spec))
             .collect::<Vec<_>>()
             .join("\n\n")
     }
 }
 
 impl RustTyper for TypeSpec {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         match self {
             Self::Struct { name, fields } => {
                 let fields_fmt = fields
                     .iter()
-                    .map(|field| field.to_rust())
+                    .map(|field| field.to_rust(spec))
                     .collect::<Vec<_>>()
                     .join("");
 
@@ -81,7 +83,7 @@ impl RustTyper for TypeSpec {
             Self::Enum { name, variants } => {
                 let variants_fmt = variants
                     .iter()
-                    .map(|var| var.to_rust())
+                    .map(|var| var.to_rust(spec))
                     .collect::<Vec<_>>()
                     .join("");
 
@@ -102,47 +104,47 @@ impl RustTyper for TypeSpec {
 }
 
 impl RustTyper for StructField {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         format!(
             "{indent}pub {}: {},\n",
             self.name,
-            self.data.to_rust(),
+            self.data.to_rust(spec),
             indent = INDENT,
         )
     }
 }
 
 impl RustTyper for EnumStructField {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         format!(
             "{indent}{indent}{}: {},\n",
             self.name,
-            self.data.to_rust(),
+            self.data.to_rust(spec),
             indent = INDENT,
         )
     }
 }
 
 impl RustTyper for EnumVariant {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         format!(
             "{indent}{}{},\n",
             self.name,
-            self.data.to_rust(),
+            self.data.to_rust(spec),
             indent = INDENT,
         )
     }
 }
 
 impl RustTyper for EnumVariantData {
-    fn to_rust(&self) -> String {
+    fn to_rust(&self, spec: &ApiSpec) -> String {
         match self {
             Self::None => "".into(),
-            Self::Single(api_type) => format!("({})", api_type.to_rust()),
+            Self::Single(api_type) => format!("({})", api_type.to_rust(spec)),
             Self::Struct(fields) => {
                 let fields_fmt = fields
                     .iter()
-                    .map(|field| field.to_rust())
+                    .map(|field| field.to_rust(spec))
                     .collect::<Vec<_>>()
                     .join("");
 
@@ -177,7 +179,7 @@ mod tests {
             ..Default::default()
         };
 
-        compare_strings("", spec.to_rust());
+        compare_strings("", to_rust(&spec));
     }
 
     fn create_spec_struct_simple() -> ApiSpec {
@@ -209,7 +211,7 @@ pub struct TestStruct {
     pub bar: String,
 }";
 
-        compare_strings(expected, create_spec_struct_simple().to_rust());
+        compare_strings(expected, to_rust(&create_spec_struct_simple()));
     }
 
     fn create_spec_struct_with_vec() -> ApiSpec {
@@ -234,7 +236,7 @@ pub struct TestStruct {
     pub foo: Vec<u32>,
 }";
 
-        compare_strings(expected, create_spec_struct_with_vec().to_rust());
+        compare_strings(expected, to_rust(&create_spec_struct_with_vec()));
     }
 
     fn create_spec_struct_with_option() -> ApiSpec {
@@ -259,7 +261,7 @@ pub struct TestStruct {
     pub foo: Option<u32>,
 }";
 
-        compare_strings(expected, create_spec_struct_with_option().to_rust());
+        compare_strings(expected, to_rust(&create_spec_struct_with_option()));
     }
 
     fn create_spec_enum_simple() -> ApiSpec {
@@ -297,7 +299,7 @@ pub enum TestEnum {
     Qux,
 }";
 
-        compare_strings(expected, create_spec_enum_simple().to_rust());
+        compare_strings(expected, to_rust(&create_spec_enum_simple()));
     }
 
     fn create_spec_enum_complex() -> ApiSpec {
@@ -347,7 +349,7 @@ pub enum TestEnum {
     },
 }";
 
-        compare_strings(expected, create_spec_enum_complex().to_rust());
+        compare_strings(expected, to_rust(&create_spec_enum_complex()));
     }
 
     fn create_spec_enum_with_vec() -> ApiSpec {
@@ -385,7 +387,7 @@ pub enum TestEnum {
     },
 }";
 
-        compare_strings(expected, create_spec_enum_with_vec().to_rust());
+        compare_strings(expected, to_rust(&create_spec_enum_with_vec()));
     }
 
     fn create_spec_enum_with_option() -> ApiSpec {
@@ -423,7 +425,7 @@ pub enum TestEnum {
     },
 }";
 
-        compare_strings(expected, create_spec_enum_with_option().to_rust());
+        compare_strings(expected, to_rust(&create_spec_enum_with_option()));
     }
 
     fn create_spec_nested_option() -> ApiSpec {
@@ -450,7 +452,7 @@ pub struct TestStruct {
     pub x: Option<Option<u32>>,
 }";
 
-        compare_strings(expected, create_spec_nested_option().to_rust());
+        compare_strings(expected, to_rust(&create_spec_nested_option()));
     }
 
     fn create_spec_nested_array() -> ApiSpec {
@@ -477,7 +479,7 @@ pub struct TestStruct {
     pub x: Vec<Vec<u32>>,
 }";
 
-        compare_strings(expected, create_spec_nested_array().to_rust());
+        compare_strings(expected, to_rust(&create_spec_nested_array()));
     }
 
     fn create_spec_map() -> ApiSpec {
@@ -506,6 +508,40 @@ pub struct TestStruct {
 }"#
         .trim();
 
-        compare_strings(expected, create_spec_map().to_rust());
+        compare_strings(expected, to_rust(&create_spec_map()));
+    }
+
+    fn create_spec_lang_specific() -> ApiSpec {
+        let rs_type = vec![("rs".to_string(), "Arc<Mutex<bool>>".to_string())]
+            .into_iter()
+            .collect();
+
+        let define_custom = vec![("ThreadBit".to_string(), rs_type)]
+            .into_iter()
+            .collect();
+
+        ApiSpec {
+            module: "TestType".into(),
+            define_custom,
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Basic(BasicApiType::Custom("ThreadBit".into())),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn rust_lang_specific() {
+        let expected = r#"
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TestStruct {
+    pub x: Arc<Mutex<bool>>,
+}"#
+        .trim();
+
+        compare_strings(expected, to_rust(&create_spec_lang_specific()));
     }
 }

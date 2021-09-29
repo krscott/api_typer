@@ -1,6 +1,6 @@
 [package]
 name = "api_typer"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Kris Scott <kscott91@gmail.com>"]
 edition = "2018"
 description = "Tool for generating types and serializer/deserializer functions"

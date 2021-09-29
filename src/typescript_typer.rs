@@ -1,17 +1,19 @@
 use crate::spec::*;
 
+const LANG: &str = "ts";
+
 pub fn to_typescript(spec: &ApiSpec) -> String {
-    spec.to_typescript()
+    spec.to_typescript(spec)
 }
 
 pub trait TypescriptTyper {
-    fn to_typescript(&self) -> String;
+    fn to_typescript(&self, spec: &ApiSpec) -> String;
 }
 
 impl TypescriptTyper for BasicApiType {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         match self {
-            BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::Custom(s) => spec.get_custom_type(s, LANG),
             BasicApiType::Recursive(s) => s.clone(),
             BasicApiType::String => String::from("string"),
             BasicApiType::Int => String::from("number"),
@@ -24,7 +26,7 @@ impl TypescriptTyper for BasicApiType {
 }
 
 impl TypescriptTyper for ApiType {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         fn use_parens(inner_type: &ApiType) -> bool {
             match inner_type {
                 ApiType::Basic(_) => false,
@@ -35,23 +37,23 @@ impl TypescriptTyper for ApiType {
         }
 
         match self {
-            ApiType::Basic(basic_type) => basic_type.to_typescript(),
+            ApiType::Basic(basic_type) => basic_type.to_typescript(spec),
             ApiType::Complex(ComplexApiType::Option(inner_type)) => {
                 //TODO: Is there a better way to represent nested `Option`s in Typescript?
                 if use_parens(inner_type) {
-                    format!("({}) | null", inner_type.to_typescript())
+                    format!("({}) | null", inner_type.to_typescript(spec))
                 } else {
-                    format!("{} | null", inner_type.to_typescript())
+                    format!("{} | null", inner_type.to_typescript(spec))
                 }
             }
             ApiType::Complex(ComplexApiType::Array(inner_type)) => {
-                format!("Array<{}>", inner_type.to_typescript())
+                format!("Array<{}>", inner_type.to_typescript(spec))
             }
             ApiType::Complex(ComplexApiType::Map(key_type, value_type)) => {
                 format!(
                     "{{[key: {}]: {}}}",
-                    key_type.to_typescript(),
-                    value_type.to_typescript()
+                    key_type.to_typescript(spec),
+                    value_type.to_typescript(spec)
                 )
             }
         }
@@ -59,22 +61,22 @@ impl TypescriptTyper for ApiType {
 }
 
 impl TypescriptTyper for ApiSpec {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         self.types
             .iter()
-            .map(|t| t.to_typescript())
+            .map(|t| t.to_typescript(spec))
             .collect::<Vec<_>>()
             .join("\n\n")
     }
 }
 
 impl TypescriptTyper for TypeSpec {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         match self {
             Self::Struct { name, fields } => {
                 let fields_fmt = fields
                     .iter()
-                    .map(|field| field.to_typescript())
+                    .map(|field| field.to_typescript(spec))
                     .collect::<Vec<_>>()
                     .join("");
 
@@ -90,7 +92,7 @@ impl TypescriptTyper for TypeSpec {
 
                 let variants_fmt = variants
                     .iter()
-                    .map(|var| var.to_typescript())
+                    .map(|var| var.to_typescript(spec))
                     .collect::<Vec<_>>()
                     .join(&sep);
 
@@ -113,12 +115,12 @@ impl TypescriptTyper for TypeSpec {
                             let vardata_arg = match data {
                                 EnumVariantData::None => String::from(""),
                                 EnumVariantData::Single(api_type) => {
-                                    format!("vardata: {}", api_type.to_typescript())
+                                    format!("vardata: {}", api_type.to_typescript(spec))
                                 }
                                 EnumVariantData::Struct(fields) => {
                                     let fields_ts = fields
                                         .iter()
-                                        .map(|field| field.to_typescript())
+                                        .map(|field| field.to_typescript(spec))
                                         .collect::<Vec<_>>()
                                         .join("");
 
@@ -188,50 +190,50 @@ impl TypescriptTyper for TypeSpec {
 }
 
 impl TypescriptTyper for StructField {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         format!(
             "{indent}{}: {},\n",
             self.name,
-            self.data.to_typescript(),
+            self.data.to_typescript(spec),
             indent = INDENT
         )
     }
 }
 
 impl TypescriptTyper for EnumStructField {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         format!(
             "{indent}{indent}{}: {},\n",
             self.name,
-            self.data.to_typescript(),
+            self.data.to_typescript(spec),
             indent = INDENT
         )
     }
 }
 
 impl TypescriptTyper for EnumVariant {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         if let EnumVariantData::None = self.data {
             format!("{{ var: \"{}\" }}", self.name)
         } else {
             format!(
                 "{{ var: \"{}\", vardata: {} }}",
                 self.name,
-                self.data.to_typescript()
+                self.data.to_typescript(spec)
             )
         }
     }
 }
 
 impl TypescriptTyper for EnumVariantData {
-    fn to_typescript(&self) -> String {
+    fn to_typescript(&self, spec: &ApiSpec) -> String {
         match self {
             Self::None => "null".into(),
-            Self::Single(api_type) => format!("{}", api_type.to_typescript()),
+            Self::Single(api_type) => format!("{}", api_type.to_typescript(spec)),
             Self::Struct(fields) => {
                 let fields_fmt = fields
                     .iter()
-                    .map(|field| field.to_typescript())
+                    .map(|field| field.to_typescript(spec))
                     .collect::<Vec<_>>()
                     .join("");
 
@@ -266,7 +268,7 @@ mod tests {
             ..Default::default()
         };
 
-        compare_strings("", spec.to_typescript());
+        compare_strings("", to_typescript(&spec));
     }
 
     fn create_spec_struct_simple() -> ApiSpec {
@@ -296,7 +298,7 @@ mod tests {
     bar: string,
 }"#;
 
-        compare_strings(expected, create_spec_struct_simple().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_struct_simple()));
     }
 
     fn create_spec_struct_with_vec() -> ApiSpec {
@@ -319,7 +321,7 @@ mod tests {
     foo: Array<number>,
 }"#;
 
-        compare_strings(expected, create_spec_struct_with_vec().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_struct_with_vec()));
     }
 
     fn create_spec_struct_with_option() -> ApiSpec {
@@ -342,7 +344,7 @@ mod tests {
     foo: number | null,
 }"#;
 
-        compare_strings(expected, create_spec_struct_with_option().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_struct_with_option()));
     }
 
     fn create_spec_enum_simple() -> ApiSpec {
@@ -394,7 +396,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 }
 "#;
 
-        compare_strings(expected, create_spec_enum_simple().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_enum_simple()));
     }
 
     fn create_spec_enum_complex() -> ApiSpec {
@@ -461,7 +463,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 }
 "#;
 
-        compare_strings(expected, create_spec_enum_complex().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_enum_complex()));
     }
 
     fn create_spec_enum_with_vec() -> ApiSpec {
@@ -512,7 +514,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 }
 "#;
 
-        compare_strings(expected, create_spec_enum_with_vec().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_enum_with_vec()));
     }
 
     fn create_spec_enum_with_option() -> ApiSpec {
@@ -563,7 +565,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 }
 "#;
 
-        compare_strings(expected, create_spec_enum_with_option().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_enum_with_option()));
     }
 
     fn create_spec_nested_option() -> ApiSpec {
@@ -591,7 +593,7 @@ export interface TestStruct {
 "#
         .trim();
 
-        compare_strings(expected, create_spec_nested_option().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_nested_option()));
     }
 
     fn create_spec_nested_array() -> ApiSpec {
@@ -619,7 +621,7 @@ export interface TestStruct {
 "#
         .trim();
 
-        compare_strings(expected, create_spec_nested_array().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_nested_array()));
     }
 
     fn create_spec_map() -> ApiSpec {
@@ -648,6 +650,40 @@ export interface TestStruct {
 "#
         .trim();
 
-        compare_strings(expected, create_spec_map().to_typescript());
+        compare_strings(expected, to_typescript(&create_spec_map()));
+    }
+
+    fn create_spec_lang_specific() -> ApiSpec {
+        let rs_type = vec![("ts".to_string(), "{ locked: bool, bit: bool }".to_string())]
+            .into_iter()
+            .collect();
+
+        let define_custom = vec![("ThreadBit".to_string(), rs_type)]
+            .into_iter()
+            .collect();
+
+        ApiSpec {
+            module: "TestType".into(),
+            define_custom,
+            types: vec![TypeSpec::Struct {
+                name: "TestStruct".into(),
+                fields: vec![StructField {
+                    name: "x".into(),
+                    data: ApiType::Basic(BasicApiType::Custom("ThreadBit".into())),
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn typescript_lang_specific() {
+        let expected = r#"
+export interface TestStruct {
+    x: { locked: bool, bit: bool },
+}
+"#
+        .trim();
+
+        compare_strings(expected, to_typescript(&create_spec_lang_specific()));
     }
 }

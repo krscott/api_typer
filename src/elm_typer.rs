@@ -1,23 +1,27 @@
 use crate::spec::*;
 
+const LANG: &str = "elm";
+
 pub fn to_elm(spec: &ApiSpec) -> String {
-    spec.to_elm()
+    spec.to_elm(spec)
 }
 
 pub trait ElmTyper {
-    fn to_elm(&self) -> String;
-    fn to_elm_decoder(&self) -> String {
+    fn to_elm(&self, spec: &ApiSpec) -> String;
+    fn to_elm_decoder(&self, spec: &ApiSpec) -> String {
+        let _ = spec;
         unimplemented!()
     }
-    fn to_elm_encoder(&self) -> String {
+    fn to_elm_encoder(&self, spec: &ApiSpec) -> String {
+        let _ = spec;
         unimplemented!()
     }
 }
 
 impl ElmTyper for BasicApiType {
-    fn to_elm(&self) -> String {
+    fn to_elm(&self, spec: &ApiSpec) -> String {
         match self {
-            BasicApiType::Custom(s) => s.clone(),
+            BasicApiType::Custom(s) => spec.get_custom_type(s, LANG),
             BasicApiType::Recursive(s) => s.clone(),
             BasicApiType::String => String::from("String"),
             BasicApiType::Int => String::from("Int"),
@@ -30,7 +34,7 @@ impl ElmTyper for BasicApiType {
 }
 
 impl ElmTyper for ApiType {
-    fn to_elm(&self) -> String {
+    fn to_elm(&self, spec: &ApiSpec) -> String {
         fn use_parens(inner_type: &ApiType) -> bool {
             match inner_type {
                 ApiType::Basic(_) => false,
@@ -39,37 +43,41 @@ impl ElmTyper for ApiType {
         }
 
         match self {
-            ApiType::Basic(basic_type) => basic_type.to_elm(),
+            ApiType::Basic(basic_type) => basic_type.to_elm(spec),
             ApiType::Complex(ComplexApiType::Option(inner_type)) => {
                 if use_parens(inner_type) {
-                    format!("Maybe ({})", inner_type.to_elm())
+                    format!("Maybe ({})", inner_type.to_elm(spec))
                 } else {
-                    format!("Maybe {}", inner_type.to_elm())
+                    format!("Maybe {}", inner_type.to_elm(spec))
                 }
             }
             ApiType::Complex(ComplexApiType::Array(inner_type)) => {
                 if use_parens(inner_type) {
-                    format!("List ({})", inner_type.to_elm())
+                    format!("List ({})", inner_type.to_elm(spec))
                 } else {
-                    format!("List {}", inner_type.to_elm())
+                    format!("List {}", inner_type.to_elm(spec))
                 }
             }
             ApiType::Complex(ComplexApiType::Map(key_type @ BasicApiType::String, value_type)) => {
                 if use_parens(value_type) {
-                    format!("Dict {} ({})", key_type.to_elm(), value_type.to_elm())
+                    format!(
+                        "Dict {} ({})",
+                        key_type.to_elm(spec),
+                        value_type.to_elm(spec)
+                    )
                 } else {
-                    format!("Dict {} {}", key_type.to_elm(), value_type.to_elm())
+                    format!("Dict {} {}", key_type.to_elm(spec), value_type.to_elm(spec))
                 }
             }
             ApiType::Complex(ComplexApiType::Map(key_type, _)) => {
-                unimplemented!("Dict key type '{}' not supported", key_type.to_elm())
+                unimplemented!("Dict key type '{}' not supported", key_type.to_elm(spec))
             }
         }
     }
 }
 
 impl ElmTyper for ApiSpec {
-    fn to_elm(&self) -> String {
+    fn to_elm(&self, spec: &ApiSpec) -> String {
         let exports_str = self
             .types
             .iter()
@@ -90,7 +98,13 @@ impl ElmTyper for ApiSpec {
         let types_str = self
             .types
             .iter()
-            .flat_map(|t| vec![t.to_elm(), t.to_elm_decoder(), t.to_elm_encoder()])
+            .flat_map(|t| {
+                vec![
+                    t.to_elm(spec),
+                    t.to_elm_decoder(spec),
+                    t.to_elm_encoder(spec),
+                ]
+            })
             .collect::<Vec<_>>()
             .join("\n\n");
 
@@ -121,14 +135,14 @@ impl ElmTyper for ApiSpec {
 }
 
 impl ElmTyper for TypeSpec {
-    fn to_elm(&self) -> String {
+    fn to_elm(&self, spec: &ApiSpec) -> String {
         match self {
             Self::Struct { name, fields } => {
                 let sep = format!("\n{indent}, ", indent = INDENT);
 
                 let fields_fmt = fields
                     .iter()
-                    .map(|field| field.to_elm())
+                    .map(|field| field.to_elm(spec))
                     .collect::<Vec<_>>()
                     .join(&sep);
 
@@ -153,8 +167,8 @@ impl ElmTyper for TypeSpec {
                             };
                             Some(format!(
                                 "{}\n\n{}\n\n",
-                                subtype.to_elm(),
-                                subtype.to_elm_decoder()
+                                subtype.to_elm(spec),
+                                subtype.to_elm_decoder(spec)
                             ))
                         } else {
                             None
@@ -171,7 +185,7 @@ impl ElmTyper for TypeSpec {
                         if let EnumVariantData::Struct(_) = &var.data {
                             format!("{name} {parent}{name}", name = var.name, parent = name)
                         } else {
-                            var.to_elm()
+                            var.to_elm(spec)
                         }
                     })
                     .collect::<Vec<_>>()
@@ -191,14 +205,14 @@ impl ElmTyper for TypeSpec {
         }
     }
 
-    fn to_elm_decoder(&self) -> String {
+    fn to_elm_decoder(&self, spec: &ApiSpec) -> String {
         match self {
             Self::Struct { name, fields } => {
                 let sep = format!("\n{indent}{indent}", indent = INDENT);
 
                 let field_decoders = fields
                     .iter()
-                    .map(|field| format!("|> {}", field.to_elm_decoder()))
+                    .map(|field| format!("|> {}", field.to_elm_decoder(spec)))
                     .collect::<Vec<_>>()
                     .join(&sep);
 
@@ -226,7 +240,7 @@ impl ElmTyper for TypeSpec {
                             parent = name, indent = INDENT,
                         )
                     } else {
-                        var.to_elm_decoder()
+                        var.to_elm_decoder(spec)
                     })
                     .collect::<Vec<_>>()
                     .join(&sep);
@@ -246,14 +260,14 @@ impl ElmTyper for TypeSpec {
         }
     }
 
-    fn to_elm_encoder(&self) -> String {
+    fn to_elm_encoder(&self, spec: &ApiSpec) -> String {
         match self {
             Self::Struct { name, fields } => {
                 let sep = format!("\n{indent}{indent}, ", indent = INDENT);
 
                 let field_encoders = fields
                     .iter()
-                    .map(|field| field.to_elm_encoder())
+                    .map(|field| field.to_elm_encoder(spec))
                     .collect::<Vec<_>>()
                     .join(&sep);
 
@@ -272,7 +286,7 @@ impl ElmTyper for TypeSpec {
             Self::Enum { name, variants } => {
                 let variant_cases = variants
                     .iter()
-                    .map(|var| var.to_elm_encoder())
+                    .map(|var| var.to_elm_encoder(spec))
                     .collect::<Vec<_>>()
                     .join("");
 
@@ -291,8 +305,8 @@ impl ElmTyper for TypeSpec {
 }
 
 impl ElmTyper for StructField {
-    fn to_elm(&self) -> String {
-        let elm_type = self.data.to_elm();
+    fn to_elm(&self, spec: &ApiSpec) -> String {
+        let elm_type = self.data.to_elm(spec);
 
         if elm_type.contains(' ') {
             format!("{} : ({})", self.name, elm_type)
@@ -301,29 +315,29 @@ impl ElmTyper for StructField {
         }
     }
 
-    fn to_elm_decoder(&self) -> String {
+    fn to_elm_decoder(&self, spec: &ApiSpec) -> String {
         format!(
             "Json.Decode.Pipeline.required \"{name}\" {decoder}",
             name = self.name,
-            decoder = elm_json_decoder(&self.data)
+            decoder = elm_json_decoder(&self.data, spec)
         )
     }
 
-    fn to_elm_encoder(&self) -> String {
+    fn to_elm_encoder(&self, spec: &ApiSpec) -> String {
         format!(
             "(\"{name}\", {encoder} <| record.{name})",
             name = self.name,
-            encoder = elm_json_encoder(&self.data)
+            encoder = elm_json_encoder(&self.data, spec)
         )
     }
 }
 
 impl ElmTyper for EnumVariant {
-    fn to_elm(&self) -> String {
+    fn to_elm(&self, spec: &ApiSpec) -> String {
         match &self.data {
             EnumVariantData::None => format!("{}", self.name),
             EnumVariantData::Single(api_type) => {
-                let elm_type = api_type.to_elm();
+                let elm_type = api_type.to_elm(spec);
                 if elm_type.contains(' ') {
                     format!("{} ({})", self.name, elm_type)
                 } else {
@@ -338,7 +352,7 @@ impl ElmTyper for EnumVariant {
         }
     }
 
-    fn to_elm_decoder(&self) -> String {
+    fn to_elm_decoder(&self, spec: &ApiSpec) -> String {
         match &self.data {
             EnumVariantData::None => format!(
                 "Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"{name}\") <|\n\
@@ -350,7 +364,7 @@ impl ElmTyper for EnumVariant {
                     "Json.Decode.Extra.when (Json.Decode.field \"var\" Json.Decode.string) ((==) \"{name}\") <|\n\
                     {indent}{indent}{indent}Json.Decode.map {name} (Json.Decode.field \"vardata\" <| {decoder})",
                     name = self.name,
-                    decoder = elm_json_decoder(api_type), indent = INDENT,
+                    decoder = elm_json_decoder(api_type, spec), indent = INDENT,
                 )
             },
             EnumVariantData::Struct(_) => {
@@ -359,7 +373,7 @@ impl ElmTyper for EnumVariant {
         }
     }
 
-    fn to_elm_encoder(&self) -> String {
+    fn to_elm_encoder(&self, spec: &ApiSpec) -> String {
         match &self.data {
             EnumVariantData::None => format!(
                 "\n\
@@ -379,7 +393,7 @@ impl ElmTyper for EnumVariant {
                     {indent}{indent}{indent}{indent}, ( \"vardata\", {encoder} <| value )\n\
                     {indent}{indent}{indent}{indent}]",
                     name = self.name,
-                    encoder = elm_json_encoder(api_type),
+                    encoder = elm_json_encoder(api_type, spec),
                     indent = INDENT
                 )
             }
@@ -395,7 +409,7 @@ impl ElmTyper for EnumVariant {
                         format!(
                             " ( \"{name}\", {encoder} <| record.{name} )",
                             name = field.name,
-                            encoder = elm_json_encoder(&field.data)
+                            encoder = elm_json_encoder(&field.data, spec)
                         )
                     })
                     .collect::<Vec<_>>()
@@ -419,12 +433,12 @@ impl ElmTyper for EnumVariant {
     }
 }
 
-fn elm_json_decoder(data: &ApiType) -> String {
+fn elm_json_decoder(data: &ApiType, spec: &ApiSpec) -> String {
     match data {
         ApiType::Basic(t) => {
             const JSON_ENCODE_TYPES: &[&str] = &["String", "Int", "Float", "Bool"];
 
-            let t = t.to_elm();
+            let t = t.to_elm(spec);
 
             if JSON_ENCODE_TYPES.contains(&t.as_str()) {
                 format!("Json.Decode.{}", t.to_lowercase())
@@ -433,26 +447,26 @@ fn elm_json_decoder(data: &ApiType) -> String {
             }
         }
         ApiType::Complex(ComplexApiType::Option(t)) => {
-            format!("(Json.Decode.nullable {})", elm_json_decoder(t))
+            format!("(Json.Decode.nullable {})", elm_json_decoder(t, spec))
         }
         ApiType::Complex(ComplexApiType::Array(t)) => {
-            format!("(Json.Decode.list {})", elm_json_decoder(t))
+            format!("(Json.Decode.list {})", elm_json_decoder(t, spec))
         }
         ApiType::Complex(ComplexApiType::Map(BasicApiType::String, value_type)) => {
-            format!("(Json.Decode.dict {})", value_type.to_elm())
+            format!("(Json.Decode.dict {})", value_type.to_elm(spec))
         }
         ApiType::Complex(ComplexApiType::Map(key_type, _)) => {
-            unimplemented!("Dict key type '{}' not supported", key_type.to_elm())
+            unimplemented!("Dict key type '{}' not supported", key_type.to_elm(spec))
         }
     }
 }
 
-fn elm_json_encoder(data: &ApiType) -> String {
+fn elm_json_encoder(data: &ApiType, spec: &ApiSpec) -> String {
     match data {
         ApiType::Basic(t) => {
             const JSON_ENCODE_TYPES: &[&str] = &["String", "Int", "Float", "Bool"];
 
-            let t = t.to_elm();
+            let t = t.to_elm(spec);
 
             if JSON_ENCODE_TYPES.contains(&t.as_str()) {
                 format!("Json.Encode.{}", t.to_lowercase())
@@ -461,16 +475,16 @@ fn elm_json_encoder(data: &ApiType) -> String {
             }
         }
         ApiType::Complex(ComplexApiType::Option(t)) => {
-            format!("(Json.Encode.Extra.maybe {})", elm_json_encoder(t))
+            format!("(Json.Encode.Extra.maybe {})", elm_json_encoder(t, spec))
         }
         ApiType::Complex(ComplexApiType::Array(t)) => {
-            format!("(Json.Encode.list {})", elm_json_encoder(t))
+            format!("(Json.Encode.list {})", elm_json_encoder(t, spec))
         }
         ApiType::Complex(ComplexApiType::Map(BasicApiType::String, value_type)) => {
-            format!("(Json.Encode.dict identity {})", value_type.to_elm())
+            format!("(Json.Encode.dict identity {})", value_type.to_elm(spec))
         }
         ApiType::Complex(ComplexApiType::Map(key_type, _)) => {
-            unimplemented!("Dict key type '{}' not supported", key_type.to_elm())
+            unimplemented!("Dict key type '{}' not supported", key_type.to_elm(spec))
         }
     }
 }
@@ -507,7 +521,7 @@ import Json.Encode
 import Json.Encode.Extra
 
 ",
-            spec.to_elm(),
+            to_elm(&spec),
         );
     }
 
@@ -562,7 +576,7 @@ encodeTestStruct record =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_struct_simple().to_elm());
+        compare_strings(expected, to_elm(&create_spec_struct_simple()));
     }
 
     fn create_spec_struct_with_vec() -> ApiSpec {
@@ -607,7 +621,7 @@ encodeTestStruct record =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_struct_with_vec().to_elm());
+        compare_strings(expected, to_elm(&create_spec_struct_with_vec()));
     }
 
     fn create_spec_struct_with_option() -> ApiSpec {
@@ -652,7 +666,7 @@ encodeTestStruct record =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_struct_with_option().to_elm());
+        compare_strings(expected, to_elm(&create_spec_struct_with_option()));
     }
 
     fn create_spec_enum_simple() -> ApiSpec {
@@ -724,7 +738,7 @@ encodeTestEnum var =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_enum_simple().to_elm());
+        compare_strings(expected, to_elm(&create_spec_enum_simple()));
     }
 
     fn create_spec_enum_complex() -> ApiSpec {
@@ -821,7 +835,7 @@ encodeTestEnum var =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_enum_complex().to_elm());
+        compare_strings(expected, to_elm(&create_spec_enum_complex()));
     }
 
     fn create_spec_enum_with_vec() -> ApiSpec {
@@ -898,7 +912,7 @@ encodeTestEnum var =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_enum_with_vec().to_elm());
+        compare_strings(expected, to_elm(&create_spec_enum_with_vec()));
     }
 
     fn create_spec_enum_with_option() -> ApiSpec {
@@ -974,7 +988,7 @@ encodeTestEnum var =
                 ]
 "#.trim();
 
-        compare_strings(expected, create_spec_enum_with_option().to_elm());
+        compare_strings(expected, to_elm(&create_spec_enum_with_option()));
     }
 
     fn create_spec_nested_option() -> ApiSpec {
@@ -1020,7 +1034,7 @@ encodeTestStruct record =
         ]
 "#.trim();
 
-        compare_strings(expected, create_spec_nested_option().to_elm());
+        compare_strings(expected, to_elm(&create_spec_nested_option()));
     }
 
     fn create_spec_nested_array() -> ApiSpec {
@@ -1067,7 +1081,7 @@ encodeTestStruct record =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_nested_array().to_elm());
+        compare_strings(expected, to_elm(&create_spec_nested_array()));
     }
 
     fn create_spec_map() -> ApiSpec {
@@ -1116,6 +1130,8 @@ encodeTestStruct record =
 "#
         .trim();
 
-        compare_strings(expected, create_spec_map().to_elm());
+        compare_strings(expected, to_elm(&create_spec_map()));
     }
+
+    // TODO: Test lang-specific custom type
 }

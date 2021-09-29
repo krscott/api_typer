@@ -115,6 +115,16 @@ pub enum TypeSpec {
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct ApiSpec {
     pub module: String,
-    pub define_custom: Option<HashMap<String, String>>,
+    pub define_custom: HashMap<String, HashMap<String, String>>,
     pub types: Vec<TypeSpec>,
+}
+
+impl ApiSpec {
+    pub fn get_custom_type<S: AsRef<str>>(&self, type_str: S, lang: &str) -> String {
+        self.define_custom
+            .get(type_str.as_ref())
+            .and_then(|map| map.get(lang))
+            .map(|s| s.clone())
+            .unwrap_or_else(|| type_str.as_ref().to_owned())
+    }
 }

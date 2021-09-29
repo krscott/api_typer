@@ -49,8 +49,22 @@ fn main() {
 }
 
 fn test_data_spec() -> ApiSpec {
+    let define_custom = vec![(
+        "ArcBit".to_string(),
+        vec![
+            ("rs".to_string(), "Arc<bool>".to_string()),
+            ("ts".to_string(), "boolean".to_string()),
+            ("elm".to_string(), "Bool".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+    )]
+    .into_iter()
+    .collect();
+
     ApiSpec {
         module: "test".into(),
+        define_custom,
         types: vec![
             TypeSpec::Enum {
                 name: "TestEnum".into(),
@@ -97,9 +111,12 @@ fn test_data_spec() -> ApiSpec {
                         name: "myenum".into(),
                         data: ApiType::basic(BasicApiType::Custom("TestEnum".into())),
                     },
+                    StructField {
+                        name: "arcbit".into(),
+                        data: ApiType::basic(BasicApiType::Custom("ArcBit".into())),
+                    },
                 ],
             },
         ],
-        ..Default::default()
     }
 }
