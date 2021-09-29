@@ -174,6 +174,7 @@ mod tests {
         let spec = ApiSpec {
             module: "TestType".into(),
             types: vec![],
+            ..Default::default()
         };
 
         compare_strings("", spec.to_rust());
@@ -195,6 +196,7 @@ mod tests {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -220,6 +222,7 @@ pub struct TestStruct {
                     data: ApiType::array(BasicApiType::Uint),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -244,6 +247,7 @@ pub struct TestStruct {
                     data: ApiType::option(BasicApiType::Uint),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -278,6 +282,7 @@ pub struct TestStruct {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -324,6 +329,7 @@ pub enum TestEnum {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -363,6 +369,7 @@ pub enum TestEnum {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -400,6 +407,7 @@ pub enum TestEnum {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -430,6 +438,7 @@ pub enum TestEnum {
                     )))),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -456,6 +465,7 @@ pub struct TestStruct {
                     )))),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -483,6 +493,7 @@ pub struct TestStruct {
                     )),
                 }],
             }],
+            ..Default::default()
         }
     }
 

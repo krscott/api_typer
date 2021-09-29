@@ -263,6 +263,7 @@ mod tests {
         let spec = ApiSpec {
             module: "TestType".into(),
             types: vec![],
+            ..Default::default()
         };
 
         compare_strings("", spec.to_typescript());
@@ -284,6 +285,7 @@ mod tests {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -307,6 +309,7 @@ mod tests {
                     data: ApiType::array(BasicApiType::Uint),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -329,6 +332,7 @@ mod tests {
                     data: ApiType::option(BasicApiType::Uint),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -361,6 +365,7 @@ mod tests {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -421,6 +426,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -477,6 +483,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -527,6 +534,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -570,6 +578,7 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
                     )))),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -597,6 +606,7 @@ export interface TestStruct {
                     )))),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -625,6 +635,7 @@ export interface TestStruct {
                     )),
                 }],
             }],
+            ..Default::default()
         }
     }
 

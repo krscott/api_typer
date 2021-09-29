@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 pub const INDENT: &str = "    ";
@@ -18,7 +20,7 @@ pub enum BasicApiType {
 pub enum ComplexApiType {
     Option(Box<ApiType>),
     Array(Box<ApiType>),
-    Map(BasicApiType, Box<ApiType>)
+    Map(BasicApiType, Box<ApiType>),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -110,8 +112,9 @@ pub enum TypeSpec {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct ApiSpec {
     pub module: String,
+    pub define_custom: Option<HashMap<String, String>>,
     pub types: Vec<TypeSpec>,
 }

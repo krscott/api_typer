@@ -493,6 +493,7 @@ mod tests {
         let spec = ApiSpec {
             module: "TestType".into(),
             types: vec![],
+            ..Default::default()
         };
 
         compare_strings(
@@ -526,6 +527,7 @@ import Json.Encode.Extra
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -573,6 +575,7 @@ encodeTestStruct record =
                     data: ApiType::array(BasicApiType::Uint),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -617,6 +620,7 @@ encodeTestStruct record =
                     data: ApiType::option(BasicApiType::Uint),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -671,6 +675,7 @@ encodeTestStruct record =
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -751,6 +756,7 @@ encodeTestEnum var =
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -837,6 +843,7 @@ encodeTestEnum var =
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -913,6 +920,7 @@ encodeTestEnum var =
                     },
                 ],
             }],
+            ..Default::default()
         }
     }
 
@@ -981,6 +989,7 @@ encodeTestEnum var =
                     )))),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -1026,6 +1035,7 @@ encodeTestStruct record =
                     )))),
                 }],
             }],
+            ..Default::default()
         }
     }
 
@@ -1073,6 +1083,7 @@ encodeTestStruct record =
                     )),
                 }],
             }],
+            ..Default::default()
         }
     }
 

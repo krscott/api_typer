@@ -100,5 +100,6 @@ fn test_data_spec() -> ApiSpec {
                 ],
             },
         ],
+        ..Default::default()
     }
 }
