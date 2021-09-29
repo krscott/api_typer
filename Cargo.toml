@@ -4,16 +4,22 @@ version = "0.3.0"
 authors = ["Kris Scott <kscott91@gmail.com>"]
 edition = "2018"
 description = "Tool for generating types and serializer/deserializer functions"
-default-run = "main"
 
-[[bin]]
-name = "main"
-path = "src/bin/main.rs"
+[lib]
+name = "api_typer"
 
 [dependencies]
-polymorphio = { git = "https://github.com/krscott/polymorphio.git", tag = "v0.1.2"}
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+polymorphio = { git = "https://github.com/krscott/polymorphio.git", tag = "v0.1.2" }
 structopt = "0.3"
 log = "0.4"
 stderrlog = "0.4"
-serde = { version = "1.0", features = ["derive"]}
 serde_yaml = "0.8"
+
+[[example]]
+name = "cli"
+
+[[example]]
+name = "devtest"

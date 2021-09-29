@@ -19,3 +19,4 @@ and write the outputs to your source directories.
 ## Example
 See the `mod tests` sections of each `src/*_typer.rs` file for examples.
 
+See `test.sh` for an example of generating files from a yml spec file.
