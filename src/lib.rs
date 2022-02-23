@@ -1,4 +1,5 @@
 mod elm_typer;
+mod parser;
 mod rust_typer;
 mod spec;
 mod typescript_typer;

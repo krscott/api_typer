@@ -1,6 +1,6 @@
 [package]
 name = "api_typer"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Kris Scott <kscott91@gmail.com>"]
 edition = "2018"
 description = "Tool for generating types and serializer/deserializer functions"
@@ -10,6 +10,7 @@ name = "api_typer"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+nom = "7"
 
 [dev-dependencies]
 polymorphio = { git = "https://github.com/krscott/polymorphio.git", tag = "v0.1.2" }
