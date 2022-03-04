@@ -55,6 +55,7 @@ fn test_data_spec() -> ApiSpec {
             ("rs".to_string(), "Arc<bool>".to_string()),
             ("ts".to_string(), "boolean".to_string()),
             ("elm".to_string(), "Bool".to_string()),
+            ("py".to_string(), "bool".to_string()),
         ]
         .into_iter()
         .collect(),

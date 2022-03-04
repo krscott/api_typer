@@ -11,4 +11,8 @@ cargo test
 
 mkdir -p test/
 cargo run --example devtest -- -o test/spec.yml
-cargo run --example cli -- -vv test/spec.yml -e test/ApiTypes.elm -r test/api_types.rs -t test/apiTypes.ts
+cargo run --example cli -- -vv test/spec.yml \
+    -e test/ApiTypes.elm \
+    -r test/api_types.rs \
+    -t test/apiTypes.ts \
+    -p test/api_types.py

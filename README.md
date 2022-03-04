@@ -11,6 +11,8 @@ Also generates some useful helper functions.
 * Elm
   * Generates JSON encoder/decoder functions
   * *Note: some type combinations (e.g. non-String Map keys) are not implemented*
+* Python
+  * Derives from `pydantic.BaseModel` to provide serialization and verification
 
 ## Use
 Typical use case: In `build.rs`, create (or deserialize from a config file) an `ApiType`
