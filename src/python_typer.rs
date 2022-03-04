@@ -2,7 +2,8 @@ use crate::spec::*;
 
 const LANG: &str = "py";
 
-const IMPORTS: &str = r#"import typing
+const IMPORTS: &str = r#"from __future__ import annotations
+import typing
 import typing_extensions
 import pydantic"#;
 
@@ -233,6 +234,7 @@ mod tests {
         };
 
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -266,6 +268,7 @@ import pydantic
     #[test]
     fn python_struct_simple() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -296,6 +299,7 @@ class TestStruct(pydantic.BaseModel):
     #[test]
     fn python_struct_with_vec() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -325,6 +329,7 @@ class TestStruct(pydantic.BaseModel):
     #[test]
     fn python_struct_with_option() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -364,6 +369,7 @@ class TestStruct(pydantic.BaseModel):
     #[test]
     fn python_enum_simple() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -420,6 +426,7 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumFoo, TestEnumBar, Te
     #[test]
     fn python_enum_complex() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -471,6 +478,7 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumFoo, TestEnumBar, Te
     #[test]
     fn python_enum_with_vec() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -518,6 +526,7 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumBar, TestEnumQux], p
     #[test]
     fn python_enum_with_option() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -558,6 +567,7 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumBar, TestEnumQux], p
     #[test]
     fn python_nested_option() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -589,6 +599,7 @@ class TestStruct(pydantic.BaseModel):
     #[test]
     fn python_nested_array() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -621,6 +632,7 @@ class TestStruct(pydantic.BaseModel):
     #[test]
     fn python_map() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
@@ -658,6 +670,7 @@ class TestStruct(pydantic.BaseModel):
     #[test]
     fn python_lang_specific() {
         let expected = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
 import pydantic
