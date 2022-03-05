@@ -2,10 +2,20 @@ use crate::spec::*;
 
 const LANG: &str = "py";
 
-const IMPORTS: &str = r#"from __future__ import annotations
+const IMPORTS: &str = r#"
+from __future__ import annotations
 import typing
 import typing_extensions
-import pydantic"#;
+import pydantic
+
+class EnumBaseModel(pydantic.BaseModel):
+    def __eq__(self, other: typing.Any):
+        self_root = getattr(self, "__root__", None)
+        other = getattr(other, "__root__", other)
+        if self_root is None:
+            return super().__eq__(other)
+        return self_root == other
+"#;
 
 pub fn to_python(spec: &ApiSpec) -> String {
     spec.to_python(spec)
@@ -60,8 +70,19 @@ impl PythonTyper for ApiSpec {
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        format!("{}\n\n{}", IMPORTS, types)
+        format!("{}\n\n{}", IMPORTS.trim(), types.trim())
     }
+}
+
+fn enum_var_class_name(name: &str, var: &EnumVariant) -> String {
+    format!("{}_{}", name, var.name)
+}
+
+fn enum_struct_names_types(spec: &ApiSpec, fields: &[EnumStructField]) -> Vec<(String, String)> {
+    fields
+        .iter()
+        .map(|field| (field.name.clone(), field.data.to_python(spec)))
+        .collect()
 }
 
 impl PythonTyper for TypeSpec {
@@ -84,23 +105,24 @@ impl PythonTyper for TypeSpec {
                 fn var_class_def(spec: &ApiSpec, name: &str, var: &EnumVariant) -> Vec<String> {
                     match &var.data {
                         EnumVariantData::None => vec![format!(
-                            r#"class {enumname}{varname}(pydantic.BaseModel):
+                            r#"class {classname}(EnumBaseModel):
     var: typing.Literal["{varname}"] = "{varname}"
 "#,
+                            classname = enum_var_class_name(name, var),
                             varname = var.name,
-                            enumname = name
                         )],
                         EnumVariantData::Single(api_type) => vec![format!(
-                            r#"class {enumname}{varname}(pydantic.BaseModel):
+                            r#"class {classname}(EnumBaseModel):
     var: typing.Literal["{varname}"] = "{varname}"
     vardata: {datatype}
 "#,
+                            classname = enum_var_class_name(name, var),
                             varname = var.name,
-                            enumname = name,
                             datatype = api_type.to_python(spec)
                         )],
                         EnumVariantData::Struct(fields) => {
-                            let sub_type_name = format!("{}{}Data", name, var.name);
+                            let class_name = enum_var_class_name(name, var);
+                            let inner_class_name = format!("{}_Data", class_name);
 
                             let fields_fmt = fields
                                 .iter()
@@ -110,23 +132,92 @@ impl PythonTyper for TypeSpec {
 
                             vec![
                                 format!(
-                                    "class {name}(pydantic.BaseModel):\n{fields}",
-                                    name = sub_type_name,
+                                    "class {inner_class_name}(pydantic.BaseModel):\n{fields}",
+                                    inner_class_name = inner_class_name,
                                     fields = fields_fmt
                                 ),
                                 format!(
-                                    r#"class {enumname}{varname}(pydantic.BaseModel):
+                                    r#"class {classname}(EnumBaseModel):
     var: typing.Literal["{varname}"] = "{varname}"
     vardata: {vardata_type}
 "#,
+                                    classname = class_name,
                                     varname = var.name,
-                                    enumname = name,
-                                    vardata_type = sub_type_name,
+                                    vardata_type = inner_class_name,
                                 ),
                             ]
                         }
                     }
                 }
+
+                fn var_constructor(spec: &ApiSpec, name: &str, var: &EnumVariant) -> String {
+                    match &var.data {
+                        EnumVariantData::None => format!(
+                            r#"
+    @classmethod
+    def {varname}(cls) -> {name}:
+        return cls.parse_obj({{"var": "{varname}"}})
+"#,
+                            name = name,
+                            varname = var.name
+                        ),
+                        EnumVariantData::Single(api_type) => format!(
+                            r#"
+    @classmethod
+    def {varname}(cls, vardata: {datatype}) -> {name}:
+        return cls.parse_obj({{"var": "{varname}", "vardata": vardata}})
+"#,
+                            name = name,
+                            varname = var.name,
+                            datatype = api_type.to_python(spec)
+                        ),
+                        EnumVariantData::Struct(fields) => {
+                            let names_types = enum_struct_names_types(spec, fields);
+
+                            let args = names_types
+                                .iter()
+                                .map(|(name, type_)| format!("{}: {}", name, type_))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+
+                            let obj = names_types
+                                .iter()
+                                .map(|(name, _)| format!("\"{name}\": {name}", name = name))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+
+                            format!(
+                                r#"
+    @classmethod
+    def {varname}(cls, *, {args}) -> {name}:
+        return cls.parse_obj({{"var": "{varname}", "vardata": {{{obj}}}}})
+"#,
+                                name = name,
+                                varname = var.name,
+                                args = args,
+                                obj = obj
+                            )
+                        }
+                    }
+                }
+
+                fn var_cast(name: &str, var: &EnumVariant) -> String {
+                    format!(
+                        r#"
+    def as_{varname}(self) -> typing.Optional[{classname}]:
+        if isinstance(self.__root__, {classname}):
+            return self.__root__
+        return None
+"#,
+                        classname = enum_var_class_name(name, var),
+                        varname = var.name
+                    )
+                }
+
+                let variant_class_names = variants
+                    .iter()
+                    .map(|var| format!("{}_{}", name, var.name))
+                    .collect::<Vec<_>>();
 
                 let variant_classes = variants
                     .iter()
@@ -134,21 +225,36 @@ impl PythonTyper for TypeSpec {
                     .collect::<Vec<_>>()
                     .join("\n");
 
-                let enum_class = {
-                    let variant_class_names = variants
-                        .iter()
-                        .map(|var| format!("{}{}", name, var.name))
-                        .collect::<Vec<_>>()
-                        .join(", ");
+                let var_constructors = variants
+                    .iter()
+                    .map(|var| var_constructor(spec, name, var))
+                    .collect::<Vec<_>>()
+                    .join("");
 
-                    format!(
-                        r#"{enumname} = typing_extensions.Annotated[typing.Union[{vars}], pydantic.Field(discriminator="var")]"#,
-                        enumname = name,
-                        vars = variant_class_names
-                    )
-                };
+                let var_casts = variants
+                    .iter()
+                    .map(|var| var_cast(name, var))
+                    .collect::<Vec<_>>()
+                    .join("");
 
-                format!("{}\n{}\n", variant_classes, enum_class)
+                let enum_type = format!(
+                    r#"_{enumname}_type = typing_extensions.Annotated[typing.Union[{vars}], pydantic.Field(discriminator="var")]"#,
+                    enumname = name,
+                    vars = variant_class_names.join(", ")
+                );
+
+                let enum_class = format!(
+                    r#"
+class {enumname}(EnumBaseModel):
+    __root__: _{enumname}_type
+{var_constructors}{var_casts}
+                        "#,
+                    enumname = name,
+                    var_constructors = var_constructors,
+                    var_casts = var_casts,
+                );
+
+                format!("{}\n{}\n{}\n", variant_classes, enum_type, enum_class)
             }
         }
     }
@@ -216,13 +322,17 @@ impl PythonTyper for EnumVariantData {
 mod tests {
     use super::*;
 
+    fn py_with_header(s: &str) -> String {
+        format!("{}\n\n{}", IMPORTS.trim(), s.trim())
+    }
+
     fn compare_strings(expected: &str, actual: String) {
         eprintln!(
             "============\n  Expected\n============\n\n{}\n\n\
             ==========\n  Actual\n==========\n\n{}\n\n",
             expected, actual
         );
-        assert_eq!(expected, actual);
+        assert_eq!(expected.trim(), actual.trim());
     }
 
     #[test]
@@ -233,16 +343,9 @@ mod tests {
             ..Default::default()
         };
 
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
+        let expected = py_with_header("");
 
-"#
-        .trim_start();
-
-        compare_strings(expected, to_python(&spec));
+        compare_strings(&expected, to_python(&spec));
     }
 
     fn create_spec_struct_simple() -> ApiSpec {
@@ -267,19 +370,15 @@ import pydantic
 
     #[test]
     fn python_struct_simple() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
+        let expected = py_with_header(
+            r#"
 class TestStruct(pydantic.BaseModel):
     foo: int
     bar: str
-"#
-        .trim_start();
+"#,
+        );
 
-        compare_strings(expected, to_python(&create_spec_struct_simple()));
+        compare_strings(&expected, to_python(&create_spec_struct_simple()));
     }
 
     fn create_spec_struct_with_vec() -> ApiSpec {
@@ -298,18 +397,14 @@ class TestStruct(pydantic.BaseModel):
 
     #[test]
     fn python_struct_with_vec() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
+        let expected = py_with_header(
+            r#"
 class TestStruct(pydantic.BaseModel):
     foo: list[int]
-"#
-        .trim_start();
+"#,
+        );
 
-        compare_strings(expected, to_python(&create_spec_struct_with_vec()));
+        compare_strings(&expected, to_python(&create_spec_struct_with_vec()));
     }
 
     fn create_spec_struct_with_option() -> ApiSpec {
@@ -328,18 +423,14 @@ class TestStruct(pydantic.BaseModel):
 
     #[test]
     fn python_struct_with_option() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
+        let expected = py_with_header(
+            r#"
 class TestStruct(pydantic.BaseModel):
     foo: typing.Optional[int]
-"#
-        .trim_start();
+"#,
+        );
 
-        compare_strings(expected, to_python(&create_spec_struct_with_option()));
+        compare_strings(&expected, to_python(&create_spec_struct_with_option()));
     }
 
     fn create_spec_enum_simple() -> ApiSpec {
@@ -368,26 +459,52 @@ class TestStruct(pydantic.BaseModel):
 
     #[test]
     fn python_enum_simple() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
-class TestEnumFoo(pydantic.BaseModel):
+        let expected = py_with_header(
+            r#"
+class TestEnum_Foo(EnumBaseModel):
     var: typing.Literal["Foo"] = "Foo"
 
-class TestEnumBar(pydantic.BaseModel):
+class TestEnum_Bar(EnumBaseModel):
     var: typing.Literal["Bar"] = "Bar"
 
-class TestEnumQux(pydantic.BaseModel):
+class TestEnum_Qux(EnumBaseModel):
     var: typing.Literal["Qux"] = "Qux"
 
-TestEnum = typing_extensions.Annotated[typing.Union[TestEnumFoo, TestEnumBar, TestEnumQux], pydantic.Field(discriminator="var")]
-"#
-        .trim_start();
+_TestEnum_type = typing_extensions.Annotated[typing.Union[TestEnum_Foo, TestEnum_Bar, TestEnum_Qux], pydantic.Field(discriminator="var")]
 
-        compare_strings(expected, to_python(&create_spec_enum_simple()));
+class TestEnum(EnumBaseModel):
+    __root__: _TestEnum_type
+
+    @classmethod
+    def Foo(cls) -> TestEnum:
+        return cls.parse_obj({"var": "Foo"})
+
+    @classmethod
+    def Bar(cls) -> TestEnum:
+        return cls.parse_obj({"var": "Bar"})
+
+    @classmethod
+    def Qux(cls) -> TestEnum:
+        return cls.parse_obj({"var": "Qux"})
+
+    def as_Foo(self) -> typing.Optional[TestEnum_Foo]:
+        if isinstance(self.__root__, TestEnum_Foo):
+            return self.__root__
+        return None
+
+    def as_Bar(self) -> typing.Optional[TestEnum_Bar]:
+        if isinstance(self.__root__, TestEnum_Bar):
+            return self.__root__
+        return None
+
+    def as_Qux(self) -> typing.Optional[TestEnum_Qux]:
+        if isinstance(self.__root__, TestEnum_Qux):
+            return self.__root__
+        return None
+"#,
+        );
+
+        compare_strings(&expected, to_python(&create_spec_enum_simple()));
     }
 
     fn create_spec_enum_complex() -> ApiSpec {
@@ -425,31 +542,58 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumFoo, TestEnumBar, Te
 
     #[test]
     fn python_enum_complex() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
-class TestEnumFoo(pydantic.BaseModel):
+        let expected = py_with_header(
+            r#"
+class TestEnum_Foo(EnumBaseModel):
     var: typing.Literal["Foo"] = "Foo"
 
-class TestEnumBar(pydantic.BaseModel):
+class TestEnum_Bar(EnumBaseModel):
     var: typing.Literal["Bar"] = "Bar"
     vardata: bool
 
-class TestEnumQuxData(pydantic.BaseModel):
+class TestEnum_Qux_Data(pydantic.BaseModel):
     sub1: int
     sub2: str
 
-class TestEnumQux(pydantic.BaseModel):
+class TestEnum_Qux(EnumBaseModel):
     var: typing.Literal["Qux"] = "Qux"
-    vardata: TestEnumQuxData
+    vardata: TestEnum_Qux_Data
 
-TestEnum = typing_extensions.Annotated[typing.Union[TestEnumFoo, TestEnumBar, TestEnumQux], pydantic.Field(discriminator="var")]
-"#.trim_start();
+_TestEnum_type = typing_extensions.Annotated[typing.Union[TestEnum_Foo, TestEnum_Bar, TestEnum_Qux], pydantic.Field(discriminator="var")]
 
-        compare_strings(expected, to_python(&create_spec_enum_complex()));
+class TestEnum(EnumBaseModel):
+    __root__: _TestEnum_type
+
+    @classmethod
+    def Foo(cls) -> TestEnum:
+        return cls.parse_obj({"var": "Foo"})
+
+    @classmethod
+    def Bar(cls, vardata: bool) -> TestEnum:
+        return cls.parse_obj({"var": "Bar", "vardata": vardata})
+
+    @classmethod
+    def Qux(cls, *, sub1: int, sub2: str) -> TestEnum:
+        return cls.parse_obj({"var": "Qux", "vardata": {"sub1": sub1, "sub2": sub2}})
+
+    def as_Foo(self) -> typing.Optional[TestEnum_Foo]:
+        if isinstance(self.__root__, TestEnum_Foo):
+            return self.__root__
+        return None
+
+    def as_Bar(self) -> typing.Optional[TestEnum_Bar]:
+        if isinstance(self.__root__, TestEnum_Bar):
+            return self.__root__
+        return None
+
+    def as_Qux(self) -> typing.Optional[TestEnum_Qux]:
+        if isinstance(self.__root__, TestEnum_Qux):
+            return self.__root__
+        return None
+"#,
+        );
+
+        compare_strings(&expected, to_python(&create_spec_enum_complex()));
     }
 
     fn create_spec_enum_with_vec() -> ApiSpec {
@@ -477,27 +621,45 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumFoo, TestEnumBar, Te
 
     #[test]
     fn python_enum_with_vec() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
-class TestEnumBar(pydantic.BaseModel):
+        let expected = py_with_header(
+            r#"
+class TestEnum_Bar(EnumBaseModel):
     var: typing.Literal["Bar"] = "Bar"
     vardata: list[int]
 
-class TestEnumQuxData(pydantic.BaseModel):
+class TestEnum_Qux_Data(pydantic.BaseModel):
     sub1: list[bool]
 
-class TestEnumQux(pydantic.BaseModel):
+class TestEnum_Qux(EnumBaseModel):
     var: typing.Literal["Qux"] = "Qux"
-    vardata: TestEnumQuxData
+    vardata: TestEnum_Qux_Data
 
-TestEnum = typing_extensions.Annotated[typing.Union[TestEnumBar, TestEnumQux], pydantic.Field(discriminator="var")]
-"#.trim_start();
+_TestEnum_type = typing_extensions.Annotated[typing.Union[TestEnum_Bar, TestEnum_Qux], pydantic.Field(discriminator="var")]
 
-        compare_strings(expected, to_python(&create_spec_enum_with_vec()));
+class TestEnum(EnumBaseModel):
+    __root__: _TestEnum_type
+
+    @classmethod
+    def Bar(cls, vardata: list[int]) -> TestEnum:
+        return cls.parse_obj({"var": "Bar", "vardata": vardata})
+
+    @classmethod
+    def Qux(cls, *, sub1: list[bool]) -> TestEnum:
+        return cls.parse_obj({"var": "Qux", "vardata": {"sub1": sub1}})
+
+    def as_Bar(self) -> typing.Optional[TestEnum_Bar]:
+        if isinstance(self.__root__, TestEnum_Bar):
+            return self.__root__
+        return None
+
+    def as_Qux(self) -> typing.Optional[TestEnum_Qux]:
+        if isinstance(self.__root__, TestEnum_Qux):
+            return self.__root__
+        return None
+"#,
+        );
+
+        compare_strings(&expected, to_python(&create_spec_enum_with_vec()));
     }
 
     fn create_spec_enum_with_option() -> ApiSpec {
@@ -525,27 +687,45 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumBar, TestEnumQux], p
 
     #[test]
     fn python_enum_with_option() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
-class TestEnumBar(pydantic.BaseModel):
+        let expected = py_with_header(
+            r#"
+class TestEnum_Bar(EnumBaseModel):
     var: typing.Literal["Bar"] = "Bar"
     vardata: typing.Optional[int]
 
-class TestEnumQuxData(pydantic.BaseModel):
+class TestEnum_Qux_Data(pydantic.BaseModel):
     sub1: typing.Optional[bool]
 
-class TestEnumQux(pydantic.BaseModel):
+class TestEnum_Qux(EnumBaseModel):
     var: typing.Literal["Qux"] = "Qux"
-    vardata: TestEnumQuxData
+    vardata: TestEnum_Qux_Data
 
-TestEnum = typing_extensions.Annotated[typing.Union[TestEnumBar, TestEnumQux], pydantic.Field(discriminator="var")]
-"#.trim_start();
+_TestEnum_type = typing_extensions.Annotated[typing.Union[TestEnum_Bar, TestEnum_Qux], pydantic.Field(discriminator="var")]
 
-        compare_strings(expected, to_python(&create_spec_enum_with_option()));
+class TestEnum(EnumBaseModel):
+    __root__: _TestEnum_type
+
+    @classmethod
+    def Bar(cls, vardata: typing.Optional[int]) -> TestEnum:
+        return cls.parse_obj({"var": "Bar", "vardata": vardata})
+
+    @classmethod
+    def Qux(cls, *, sub1: typing.Optional[bool]) -> TestEnum:
+        return cls.parse_obj({"var": "Qux", "vardata": {"sub1": sub1}})
+
+    def as_Bar(self) -> typing.Optional[TestEnum_Bar]:
+        if isinstance(self.__root__, TestEnum_Bar):
+            return self.__root__
+        return None
+
+    def as_Qux(self) -> typing.Optional[TestEnum_Qux]:
+        if isinstance(self.__root__, TestEnum_Qux):
+            return self.__root__
+        return None
+"#,
+        );
+
+        compare_strings(&expected, to_python(&create_spec_enum_with_option()));
     }
 
     fn create_spec_nested_option() -> ApiSpec {
@@ -566,18 +746,14 @@ TestEnum = typing_extensions.Annotated[typing.Union[TestEnumBar, TestEnumQux], p
 
     #[test]
     fn python_nested_option() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
+        let expected = py_with_header(
+            r#"
 class TestStruct(pydantic.BaseModel):
     x: typing.Optional[typing.Optional[int]]
-"#
-        .trim_start();
+"#,
+        );
 
-        compare_strings(expected, to_python(&create_spec_nested_option()));
+        compare_strings(&expected, to_python(&create_spec_nested_option()));
     }
 
     fn create_spec_nested_array() -> ApiSpec {
@@ -598,18 +774,14 @@ class TestStruct(pydantic.BaseModel):
 
     #[test]
     fn python_nested_array() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
+        let expected = py_with_header(
+            r#"
 class TestStruct(pydantic.BaseModel):
     x: list[list[int]]
-"#
-        .trim_start();
+"#,
+        );
 
-        compare_strings(expected, to_python(&create_spec_nested_array()));
+        compare_strings(&expected, to_python(&create_spec_nested_array()));
     }
 
     fn create_spec_map() -> ApiSpec {
@@ -631,18 +803,14 @@ class TestStruct(pydantic.BaseModel):
 
     #[test]
     fn python_map() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
+        let expected = py_with_header(
+            r#"
 class TestStruct(pydantic.BaseModel):
     x: dict[str, int]
-"#
-        .trim_start();
+"#,
+        );
 
-        compare_strings(expected, to_python(&create_spec_map()));
+        compare_strings(&expected, to_python(&create_spec_map()));
     }
 
     fn create_spec_lang_specific() -> ApiSpec {
@@ -669,17 +837,13 @@ class TestStruct(pydantic.BaseModel):
 
     #[test]
     fn python_lang_specific() {
-        let expected = r#"
-from __future__ import annotations
-import typing
-import typing_extensions
-import pydantic
-
+        let expected = py_with_header(
+            r#"
 class TestStruct(pydantic.BaseModel):
     x: Tuple[str, int]
-"#
-        .trim_start();
+"#,
+        );
 
-        compare_strings(expected, to_python(&create_spec_lang_specific()));
+        compare_strings(&expected, to_python(&create_spec_lang_specific()));
     }
 }
