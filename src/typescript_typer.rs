@@ -122,7 +122,7 @@ impl TypescriptTyper for TypeSpec {
 
                         format!(
                             r#"export const {enumname}{varname}Var = "{varname}"
-export const {enumname}{varname} = ({vardata_arg}) => ({{ "var": "{varname}"{comma_vardata} }})"#,
+export const {enumname}{varname}: ({vardata_arg}) => {enumname} = ({vardata_arg}) => ({{ "var": "{varname}"{comma_vardata} }})"#,
                             varname = var.name,
                             enumname = name,
                             comma_vardata = comma_vardata,
@@ -378,7 +378,7 @@ mod tests {
 )
 
 export const TestEnumFooVar = "Foo"
-export const TestEnumFoo = () => ({ "var": "Foo" })
+export const TestEnumFoo: () => TestEnum = () => ({ "var": "Foo" })
 
 export function matchTestEnum<T>(x: TestEnum, arms: {
     Foo: () => T,
@@ -425,13 +425,13 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 )
 
 export const TestEnumFooVar = "Foo"
-export const TestEnumFoo = () => ({ "var": "Foo" })
+export const TestEnumFoo: () => TestEnum = () => ({ "var": "Foo" })
 
 export const TestEnumBarVar = "Bar"
-export const TestEnumBar = () => ({ "var": "Bar" })
+export const TestEnumBar: () => TestEnum = () => ({ "var": "Bar" })
 
 export const TestEnumQuxVar = "Qux"
-export const TestEnumQux = () => ({ "var": "Qux" })
+export const TestEnumQux: () => TestEnum = () => ({ "var": "Qux" })
 
 export function matchTestEnum<T>(x: TestEnum, arms: {
     Foo: () => T,
@@ -494,13 +494,16 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 )
 
 export const TestEnumFooVar = "Foo"
-export const TestEnumFoo = () => ({ "var": "Foo" })
+export const TestEnumFoo: () => TestEnum = () => ({ "var": "Foo" })
 
 export const TestEnumBarVar = "Bar"
-export const TestEnumBar = (vardata: boolean) => ({ "var": "Bar", vardata })
+export const TestEnumBar: (vardata: boolean) => TestEnum = (vardata: boolean) => ({ "var": "Bar", vardata })
 
 export const TestEnumQuxVar = "Qux"
-export const TestEnumQux = (vardata: {
+export const TestEnumQux: (vardata: {
+        sub1: number,
+        sub2: string,
+    }) => TestEnum = (vardata: {
         sub1: number,
         sub2: string,
     }) => ({ "var": "Qux", vardata })
@@ -557,10 +560,12 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 )
 
 export const TestEnumBarVar = "Bar"
-export const TestEnumBar = (vardata: Array<number>) => ({ "var": "Bar", vardata })
+export const TestEnumBar: (vardata: Array<number>) => TestEnum = (vardata: Array<number>) => ({ "var": "Bar", vardata })
 
 export const TestEnumQuxVar = "Qux"
-export const TestEnumQux = (vardata: {
+export const TestEnumQux: (vardata: {
+        sub1: Array<boolean>,
+    }) => TestEnum = (vardata: {
         sub1: Array<boolean>,
     }) => ({ "var": "Qux", vardata })
 
@@ -613,10 +618,12 @@ export function matchTestEnum<T>(x: TestEnum, arms: {
 )
 
 export const TestEnumBarVar = "Bar"
-export const TestEnumBar = (vardata: number | null) => ({ "var": "Bar", vardata })
+export const TestEnumBar: (vardata: number | null) => TestEnum = (vardata: number | null) => ({ "var": "Bar", vardata })
 
 export const TestEnumQuxVar = "Qux"
-export const TestEnumQux = (vardata: {
+export const TestEnumQux: (vardata: {
+        sub1: boolean | null,
+    }) => TestEnum = (vardata: {
         sub1: boolean | null,
     }) => ({ "var": "Qux", vardata })
 
