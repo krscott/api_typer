@@ -264,6 +264,32 @@ pub struct TestStruct {
         compare_strings(expected, to_rust(&create_spec_struct_with_option()));
     }
 
+    fn create_spec_enum_single() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![EnumVariant {
+                    name: "Foo".into(),
+                    data: EnumVariantData::None,
+                }],
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn rust_enum_single() {
+        let expected = "\
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = \"var\", content = \"vardata\")]
+pub enum TestEnum {
+    Foo,
+}";
+
+        compare_strings(expected, to_rust(&create_spec_enum_single()));
+    }
+
     fn create_spec_enum_simple() -> ApiSpec {
         ApiSpec {
             module: "TestType".into(),

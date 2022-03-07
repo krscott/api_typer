@@ -669,6 +669,54 @@ encodeTestStruct record =
         compare_strings(expected, to_elm(&create_spec_struct_with_option()));
     }
 
+    fn create_spec_enum_single() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![EnumVariant {
+                    name: "Foo".into(),
+                    data: EnumVariantData::None,
+                }],
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn elm_enum_single() {
+        let expected = r#"
+module TestType exposing (TestEnum(..), decodeTestEnum, encodeTestEnum)
+
+import Json.Decode
+import Json.Decode.Extra
+import Json.Decode.Pipeline
+import Json.Encode
+import Json.Encode.Extra
+
+type TestEnum
+    = Foo
+
+decodeTestEnum : Json.Decode.Decoder TestEnum
+decodeTestEnum =
+    Json.Decode.oneOf
+        [ Json.Decode.Extra.when (Json.Decode.field "var" Json.Decode.string) ((==) "Foo") <|
+            Json.Decode.succeed Foo
+        ]
+
+encodeTestEnum : TestEnum -> Json.Encode.Value
+encodeTestEnum var =
+    case var of
+        Foo ->
+            Json.Encode.object
+                [ ( "var", Json.Encode.string "Foo" )
+                ]
+"#
+        .trim();
+
+        compare_strings(expected, to_elm(&create_spec_enum_single()));
+    }
+
     fn create_spec_enum_simple() -> ApiSpec {
         ApiSpec {
             module: "TestType".into(),

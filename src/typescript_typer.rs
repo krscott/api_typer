@@ -357,6 +357,41 @@ mod tests {
         compare_strings(expected, to_typescript(&create_spec_struct_with_option()));
     }
 
+    fn create_spec_enum_single() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![EnumVariant {
+                    name: "Foo".into(),
+                    data: EnumVariantData::None,
+                }],
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn typescript_enum_single() {
+        let expected = r#"export type TestEnum = (
+    { var: "Foo" }
+)
+
+export const TestEnumFooVar = "Foo"
+export const TestEnumFoo = () => ({ "var": "Foo" })
+
+export function matchTestEnum<T>(x: TestEnum, arms: {
+    Foo: () => T,
+}): T {
+    switch (x.var) {
+        case "Foo": return arms.Foo()
+    }
+}
+"#;
+
+        compare_strings(expected, to_typescript(&create_spec_enum_single()));
+    }
+
     fn create_spec_enum_simple() -> ApiSpec {
         ApiSpec {
             module: "TestType".into(),

@@ -237,11 +237,20 @@ impl PythonTyper for TypeSpec {
                     .collect::<Vec<_>>()
                     .join("");
 
-                let enum_type = format!(
-                    r#"_{enumname}_type = typing_extensions.Annotated[typing.Union[{vars}], pydantic.Field(discriminator="var")]"#,
-                    enumname = name,
-                    vars = variant_class_names.join(", ")
-                );
+                eprintln!("{:?}", variant_class_names);
+                let enum_type = if variant_class_names.len() == 1 {
+                    format!(
+                        r#"_{enumname}_type = {vars}"#,
+                        enumname = name,
+                        vars = variant_class_names.join(", ")
+                    )
+                } else {
+                    format!(
+                        r#"_{enumname}_type = typing_extensions.Annotated[typing.Union[{vars}], pydantic.Field(discriminator="var")]"#,
+                        enumname = name,
+                        vars = variant_class_names.join(", ")
+                    )
+                };
 
                 let enum_class = format!(
                     r#"
@@ -431,6 +440,46 @@ class TestStruct(pydantic.BaseModel):
         );
 
         compare_strings(&expected, to_python(&create_spec_struct_with_option()));
+    }
+
+    fn create_spec_enum_single() -> ApiSpec {
+        ApiSpec {
+            module: "TestType".into(),
+            types: vec![TypeSpec::Enum {
+                name: "TestEnum".into(),
+                variants: vec![EnumVariant {
+                    name: "Foo".into(),
+                    data: EnumVariantData::None,
+                }],
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn python_enum_single() {
+        let expected = py_with_header(
+            r#"
+class TestEnum_Foo(EnumBaseModel):
+    var: typing.Literal["Foo"] = "Foo"
+
+_TestEnum_type = TestEnum_Foo
+
+class TestEnum(EnumBaseModel):
+    __root__: _TestEnum_type
+
+    @classmethod
+    def Foo(cls) -> TestEnum:
+        return cls.parse_obj({"var": "Foo"})
+
+    def as_Foo(self) -> typing.Optional[TestEnum_Foo]:
+        if isinstance(self.__root__, TestEnum_Foo):
+            return self.__root__
+        return None
+"#,
+        );
+
+        compare_strings(&expected, to_python(&create_spec_enum_single()));
     }
 
     fn create_spec_enum_simple() -> ApiSpec {
