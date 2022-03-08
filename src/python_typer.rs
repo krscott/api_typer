@@ -214,6 +214,17 @@ impl PythonTyper for TypeSpec {
                     )
                 }
 
+                fn var_cast_nocheck(name: &str, var: &EnumVariant) -> String {
+                    format!(
+                        r#"
+    def as_{varname}(self) -> typing.Optional[{classname}]:
+        return self.__root__
+"#,
+                        classname = enum_var_class_name(name, var),
+                        varname = var.name
+                    )
+                }
+
                 let variant_class_names = variants
                     .iter()
                     .map(|var| format!("{}_{}", name, var.name))
@@ -231,18 +242,22 @@ impl PythonTyper for TypeSpec {
                     .collect::<Vec<_>>()
                     .join("");
 
-                let var_casts = variants
-                    .iter()
-                    .map(|var| var_cast(name, var))
-                    .collect::<Vec<_>>()
-                    .join("");
+                let var_casts = if variants.len() == 1 {
+                    var_cast_nocheck(name, &variants[0])
+                } else {
+                    variants
+                        .iter()
+                        .map(|var| var_cast(name, var))
+                        .collect::<Vec<_>>()
+                        .join("")
+                };
 
                 eprintln!("{:?}", variant_class_names);
                 let enum_type = if variant_class_names.len() == 1 {
                     format!(
                         r#"_{enumname}_type = {vars}"#,
                         enumname = name,
-                        vars = variant_class_names.join(", ")
+                        vars = variant_class_names[0]
                     )
                 } else {
                     format!(
@@ -473,9 +488,7 @@ class TestEnum(EnumBaseModel):
         return cls.parse_obj({"var": "Foo"})
 
     def as_Foo(self) -> typing.Optional[TestEnum_Foo]:
-        if isinstance(self.__root__, TestEnum_Foo):
-            return self.__root__
-        return None
+        return self.__root__
 "#,
         );
 
