@@ -2,11 +2,12 @@ use crate::spec::*;
 
 const LANG: &str = "py";
 
-const IMPORTS: &str = r#"
+const HEADER: &str = r#"
 from __future__ import annotations
+import inspect
+import pydantic
 import typing
 import typing_extensions
-import pydantic
 
 class EnumBaseModel(pydantic.BaseModel):
     def __eq__(self, other: typing.Any):
@@ -15,6 +16,12 @@ class EnumBaseModel(pydantic.BaseModel):
         if self_root is None:
             return super().__eq__(other)
         return self_root == other
+"#;
+
+const FOOTER: &str = r#"
+for x in list(locals().values()):
+    if inspect.isclass(x) and issubclass(x, pydantic.BaseModel):
+        x.update_forward_refs()
 "#;
 
 pub fn to_python(spec: &ApiSpec) -> String {
@@ -70,7 +77,7 @@ impl PythonTyper for ApiSpec {
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        format!("{}\n\n{}", IMPORTS.trim(), types.trim())
+        format!("{}\n\n{}\n\n{}", HEADER.trim(), types.trim(), FOOTER.trim())
     }
 }
 
@@ -347,7 +354,7 @@ mod tests {
     use super::*;
 
     fn py_with_header(s: &str) -> String {
-        format!("{}\n\n{}", IMPORTS.trim(), s.trim())
+        format!("{}\n\n{}\n\n{}", HEADER.trim(), s.trim(), FOOTER.trim())
     }
 
     fn compare_strings(expected: &str, actual: String) {
