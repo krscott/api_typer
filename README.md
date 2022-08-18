@@ -18,6 +18,9 @@ Also generates some useful helper functions.
 Typical use case: In `build.rs`, create (or deserialize from a config file) an `ApiType`
 and write the outputs to your source directories.
 
+## Should I use this?
+Probably not anymore. I think the right way to do this is to generate JSON schemas from your types (e.g. [schemars](https://docs.rs/schemars/latest/schemars/)), then [transform](https://transform.tools/json-to-zod) it into your needed language or protocol.
+
 ## Example
 See the `mod tests` sections of each `src/*_typer.rs` file for examples.
 
